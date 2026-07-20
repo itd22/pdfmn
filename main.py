@@ -1,26 +1,30 @@
 import argparse
-import json
 import sys
 
+from books_lib import load_books_lib, save_books_lib
 from crawl import PdfCrawler
+from merge import merge
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build a PDF manifest from a directory tree.")
+    parser = argparse.ArgumentParser(description="Crawl a directory and merge new PDFs into an existing manifest.")
     parser.add_argument("top_dir", help="Top directory to crawl for PDF files")
-    parser.add_argument(
-        "-o", "--output", default="manifest.json", help="Output JSON manifest file (default: manifest.json)"
-    )
+    parser.add_argument("--main", default="main.json", help="Existing manifest JSON (default: main.json)")
+    parser.add_argument("--merged-out", default="merged.json", help="Output merged manifest (default: merged.json)")
+    parser.add_argument("--crawled-out", default="crawled.json", help="Output raw crawl result (default: crawled.json)")
     args = parser.parse_args()
 
+    main_entries = load_books_lib(args.main)
+
     crawler = PdfCrawler(args.top_dir)
-    entries = crawler.crawl()
+    crawled_entries = crawler.crawl()
 
-    manifest = [e.to_dict() for e in entries]
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2, ensure_ascii=False)
+    merged_entries = merge(main_entries, crawled_entries)
 
-    print(f"Wrote {len(entries)} entries to {args.output}")
+    save_books_lib(args.merged_out, merged_entries)
+    save_books_lib(args.crawled_out, crawled_entries)
+
+    print(f"main: {len(main_entries)}, crawled: {len(crawled_entries)}, merged: {len(merged_entries)}")
 
 
 if __name__ == "__main__":
