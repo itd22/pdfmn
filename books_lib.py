@@ -1,47 +1,54 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import List
 
+import db_bridge
+import json_bridge
+from crawl import PdfCrawler
 from manifest import PdfManifestEntry
-
-# to_dict() maps optimized -> "Optimized"; reverse that on load.
-_DICT_TO_FIELD = {
-    "valid_pdf": "valid_pdf",
-    "input_file": "input_file",
-    "file": "file",
-    "title": "title",
-    "author": "author",
-    "size": "size",
-    "Optimized": "optimized",
-    "isbn": "isbn",
-    "name": "name",
-    "year": "year",
-    "isbn_normalized": "isbn_normalized",
-    "book_id": "book_id",
-    "book_type": "book_type",
-}
+from merge import merge as merge_entries
 
 
-def entry_from_dict(d: dict) -> PdfManifestEntry:
-    entry = PdfManifestEntry.new_empty_manifest_entry()
-    for key, field in _DICT_TO_FIELD.items():
-        if key in d:
-            setattr(entry, field, d[key])
-    return entry
+class BooksLib:
+    """Holds the in-memory list of book entries and dispatches storage
+    operations to json_bridge or db_bridge depending on policy.
+    Only json_bridge and db_bridge are allowed to touch json/db directly.
+    """
 
+    def __init__(self, policy: str, json_path: str = "main.json", merged_json_path: str = "merged.json"):
+        if policy not in ("json", "db"):
+            raise ValueError(f"unknown policy: {policy}")
+        self.policy = policy
+        self.json_path = json_path
+        self.merged_json_path = merged_json_path
+        self.entries: List[PdfManifestEntry] = []
 
-def load_books_lib(path: str) -> List[PdfManifestEntry]:
-    """Read a books manifest JSON file. Missing file -> empty list."""
-    p = Path(path)
-    if not p.exists():
-        return []
-    with open(p, "r", encoding="utf-8") as f:
-        raw = json.load(f)
-    return [entry_from_dict(d) for d in raw]
+    def load(self) -> List[PdfManifestEntry]:
+        if self.policy == "json":
+            self.entries = json_bridge.load(self.json_path)
+        else:
+            if not db_bridge.is_exist():
+                db_bridge.create_db()
+            self.entries = db_bridge.load_all()
+        return self.entries
 
+    def print_names(self) -> None:
+        for entry in self.entries:
+            print(entry.name)
 
-def save_books_lib(path: str, entries: List[PdfManifestEntry]) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump([e.to_dict() for e in entries], f, indent=2, ensure_ascii=False)
+    def crawl_and_merge(self, top_dir: str) -> List[PdfManifestEntry]:
+        crawler = PdfCrawler(top_dir)
+        crawled_entries = crawler.crawl()
+
+        if self.policy == "db":
+            db_bridge.merge_to_db(crawled_entries)
+            self.entries = db_bridge.load_all()
+        else:
+            self.entries = merge_entries(self.entries, crawled_entries)
+
+        return crawled_entries
+
+    def save(self) -> None:
+        if self.policy == "json":
+            json_bridge.save(self.merged_json_path, self.entries)
+        # db policy: db_bridge.merge_to_db already persisted the changes
