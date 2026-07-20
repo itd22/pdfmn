@@ -45,6 +45,26 @@ def _entry_to_book(entry: PdfManifestEntry) -> Book:
     )
 
 
+def _book_to_entry(book: Book) -> PdfManifestEntry:
+    entry = PdfManifestEntry.new_empty_manifest_entry()
+    for field in (
+        "valid_pdf", "file", "input_file", "title", "author", "size",
+        "optimized", "year", "isbn", "name", "isbn_normalized",
+        "book_id", "book_type",
+    ):
+        setattr(entry, field, getattr(book, field))
+    return entry
+
+
+def load_all() -> List[PdfManifestEntry]:
+    """Return every entry currently stored in the database."""
+    session = Session()
+    try:
+        return [_book_to_entry(b) for b in session.query(Book).all()]
+    finally:
+        session.close()
+
+
 def save(entries: List[PdfManifestEntry]) -> None:
     """Save a list of manifest entries into the database (no dedup check)."""
     session = Session()
