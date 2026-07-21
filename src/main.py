@@ -29,4 +29,3 @@ def main(action, top_dir, main_json, merged_json):
 
 if __name__ == "__main__":
     main()
-
