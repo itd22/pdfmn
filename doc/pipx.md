@@ -70,16 +70,26 @@ pipx uninstall pdfmanifest
 
 Once installed, `pdfmanifest` is just a regular command — run it from
 wherever your manifest/PDF files live, no need to `cd` into the project
-or reference `run_app.sh` / `src/` at all:
+or reference `run_app.sh` / `src/` at all.
+
+By default (`--tui` defaults to `yes`) it launches the interactive
+ncurses TUI:
 
 ```bash
-pdfmanifest --action load_json  --main-json main.json
-pdfmanifest --action load_yaml  --main-yaml main.yaml
-pdfmanifest --action load_db
+pdfmanifest
+```
 
-pdfmanifest --action crawl_to_json --top-dir ./my-pdfs --main-json main.json --merged-json merged.json
-pdfmanifest --action crawl_to_yaml --top-dir ./my-pdfs --main-yaml main.yaml --saved-yaml saved.yaml
-pdfmanifest --action crawl_to_db   --top-dir ./my-pdfs --main-json main.json
+Pass `--tui=no` to run the classic one-shot CLI instead, with `--action`
+required:
+
+```bash
+pdfmanifest --tui=no --action load_json  --main-json main.json
+pdfmanifest --tui=no --action load_yaml  --main-yaml main.yaml
+pdfmanifest --tui=no --action load_db
+
+pdfmanifest --tui=no --action crawl_to_json --top-dir ./my-pdfs --main-json main.json --merged-json merged.json
+pdfmanifest --tui=no --action crawl_to_yaml --top-dir ./my-pdfs --main-yaml main.yaml --saved-yaml saved.yaml
+pdfmanifest --tui=no --action crawl_to_db   --top-dir ./my-pdfs --main-json main.json
 ```
 
 Run `pdfmanifest --help` for the full option list.
