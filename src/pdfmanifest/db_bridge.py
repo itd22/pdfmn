@@ -6,8 +6,8 @@ from typing import List
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db_schema import Base, Book
-from manifest import PdfManifestEntry
+from .db_schema import Base, Book
+from .manifest import PdfManifestEntry
 
 DB_NAME = "books_db"
 DB_FILE = f"{DB_NAME}.sqlite"

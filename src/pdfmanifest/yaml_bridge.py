@@ -5,8 +5,8 @@ from typing import List
 
 import yaml
 
-import yaml_schema
-from manifest import PdfManifestEntry
+from . import yaml_schema
+from .manifest import PdfManifestEntry
 
 
 def is_exist(path: str) -> bool:

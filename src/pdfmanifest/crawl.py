@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from manifest import PdfManifestEntry
+from .manifest import PdfManifestEntry
 
 
 class PdfCrawler:

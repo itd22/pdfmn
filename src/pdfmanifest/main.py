@@ -1,6 +1,6 @@
 import click
 
-from books_lib import BooksLib
+from .books_lib import BooksLib
 
 ACTIONS = ["load_json", "load_yaml", "load_db", "crawl_to_json", "crawl_to_yaml", "crawl_to_db"]
 

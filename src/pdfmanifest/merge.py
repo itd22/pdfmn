@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from manifest import PdfManifestEntry
+from .manifest import PdfManifestEntry
 
 
 def merge(

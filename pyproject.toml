@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdfmanifest"
+version = "0.1.0"
+description = "Crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)."
+requires-python = ">=3.9"
+dependencies = [
+    "click>=8.0",
+    "SQLAlchemy>=2.0",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+pdfmanifest = "pdfmanifest.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

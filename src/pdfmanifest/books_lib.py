@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import List
 
-import db_bridge
-import json_bridge
-import yaml_bridge
-from crawl import PdfCrawler
-from manifest import PdfManifestEntry
-from merge import merge as merge_entries
+from . import db_bridge
+from . import json_bridge
+from . import yaml_bridge
+from .crawl import PdfCrawler
+from .manifest import PdfManifestEntry
+from .merge import merge as merge_entries
 
 POLICIES = ("json", "yaml", "db")
 
