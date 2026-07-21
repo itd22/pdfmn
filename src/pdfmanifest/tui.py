@@ -184,21 +184,40 @@ def _select_from(stdscr, title: str, items: List[str], start_index: int = 0) -> 
     """Simple arrow-key menu. Returns selected index, or None if the user
     backed out with 'q'/ESC."""
     idx = start_index
+    exceed_screen_max = False
+    scrolled_delta =0
+    scrolled_index = 0
+    max_x = 0
     while True:
         stdscr.erase()
         max_y, max_x = stdscr.getmaxyx()
         stdscr.addnstr(0, 0, title, max_x - 1, curses.A_BOLD)
         for i, item in enumerate(items):
-            attr = curses.A_REVERSE if i == idx else curses.A_NORMAL
-            stdscr.addnstr(2 + i, 2, item, max_x - 3, attr)
+            scrolled_index = i - scrolled_delta
+            if scrolled_index < 0:
+                continue
+            attr = curses.A_REVERSE if scrolled_index == idx else curses.A_NORMAL
+            stdscr.addnstr(2 + scrolled_index, 2, item, max_x - 3, attr)
+            if scrolled_index > max_y - 4:
+                exceed_screen_max = True
+                break
+            
         stdscr.addnstr(max_y - 1, 0, "Up/Down or j/k to move, Enter to select, q to go back", max_x - 1, curses.A_DIM)
         stdscr.refresh()
 
         key = stdscr.getch()
         if key in (curses.KEY_UP, ord("k")):
             idx = (idx - 1) % len(items)
+            if scrolled_delta > 0 and idx - scrolled_delta < 2:
+                scrolled_delta -= 1
+                idx = (idx + 1) % len(items)  
+                
         elif key in (curses.KEY_DOWN, ord("j")):
             idx = (idx + 1) % len(items)
+            if exceed_screen_max and idx - scrolled_delta > max_y - 4 :
+                scrolled_delta += 1
+                exceed_screen_max = False
+ 
         elif key in (curses.KEY_ENTER, ord("\n"), ord("\r")):
             return idx
         elif key in (ord("q"), 27):  # 27 = ESC
@@ -277,7 +296,7 @@ def _action_save_as_db(stdscr, session: TuiSession) -> None:
 
 def _action_show_entries(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
-    lines = [f"{e.name}  |  {e.title or '(no title)'}  |  {e.file}" for e in lib.entries]
+    lines = [f"{e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}" for e in lib.entries if len(e.title)>0]
     if not lines:
         lines = ["(no entries loaded -- try Load or Crawl & Merge first)"]
     _select_from(stdscr, f"Entries ({len(lib.entries)}) -- q to go back", lines, 0)
