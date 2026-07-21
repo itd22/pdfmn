@@ -139,9 +139,16 @@ flowchart TD
     I -->|db policy| I2[no-op, already persisted by merge_to_db]
 ```
 
-## Actions summary
+## Policies
+
+`BooksLib(policy=...)` is `"json"`, `"yaml"`, or `"db"`. Only `json_bridge.py`,
+`yaml_bridge.py`, and `db_bridge.py` are allowed to touch storage directly.
+
+## Actions summary (`main.py --action ...`)
 
 - **load_json** — read `main.json`, print names.
+- **load_yaml** — read `main.yaml` (2-document format), print names.
 - **load_db** — open/create `books_db.sqlite`, print names.
 - **crawl_to_json** — load `main.json`, crawl `--top-dir`, merge in memory (unique by `name`), write `merged.json`.
+- **crawl_to_yaml** — load `main.yaml`, crawl `--top-dir`, merge in memory (unique by `name`), write `saved.yaml` (header `input_path` defaults to `--top-dir`, override with `--yaml-input-path`).
 - **crawl_to_db** — if `books_db.sqlite` doesn't exist: create it and seed from `main.json`; then crawl `--top-dir` and merge new entries (unique by `name`) directly into the DB.
