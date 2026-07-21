@@ -2,15 +2,15 @@ import importlib
 
 import pytest
 
-from manifest import PdfManifestEntry
+from pdfmanifest.manifest import PdfManifestEntry
 
 
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     """Fresh db_bridge module bound to an isolated books_db.sqlite per test."""
     monkeypatch.chdir(tmp_path)
-    import db_bridge as db_bridge_module
-    import db_schema as db_schema_module
+    from pdfmanifest import db_bridge as db_bridge_module
+    from pdfmanifest import db_schema as db_schema_module
 
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)

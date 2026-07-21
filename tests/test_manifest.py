@@ -1,4 +1,4 @@
-from manifest import PdfManifestEntry
+from pdfmanifest.manifest import PdfManifestEntry
 
 
 def test_new_empty_manifest_entry_defaults():

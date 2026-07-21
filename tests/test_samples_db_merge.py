@@ -12,8 +12,8 @@ SAMPLES2_DIR = PROJECT_ROOT / "samples2"
 def db(tmp_path, monkeypatch):
     """Fresh db_bridge module bound to an isolated books_db.sqlite per test."""
     monkeypatch.chdir(tmp_path)
-    import db_bridge as db_bridge_module
-    import db_schema as db_schema_module
+    from pdfmanifest import db_bridge as db_bridge_module
+    from pdfmanifest import db_schema as db_schema_module
 
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)
@@ -21,7 +21,7 @@ def db(tmp_path, monkeypatch):
 
 
 def test_db_created_from_samples_then_merged_with_samples2(db):
-    from crawl import PdfCrawler
+    from pdfmanifest.crawl import PdfCrawler
 
     # 1. Build the db from samples/
     db.create_db()
@@ -54,7 +54,7 @@ def test_db_created_from_samples_then_merged_with_samples2(db):
 def test_merge_key_is_name_not_path(db):
     """Same filename in a different directory is treated as the same book;
     input_file still records the original path it was first seen at."""
-    from crawl import PdfCrawler
+    from pdfmanifest.crawl import PdfCrawler
 
     db.create_db()
     db.merge_to_db(PdfCrawler(str(SAMPLES_DIR)).crawl())

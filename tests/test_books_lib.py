@@ -2,10 +2,10 @@ import importlib
 
 import pytest
 
-from books_lib import BooksLib
-from json_bridge import save as json_save
-from manifest import PdfManifestEntry
-from yaml_bridge import save as yaml_save
+from pdfmanifest.books_lib import BooksLib
+from pdfmanifest.json_bridge import save as json_save
+from pdfmanifest.manifest import PdfManifestEntry
+from pdfmanifest.yaml_bridge import save as yaml_save
 
 
 def _entry(name, **overrides):
@@ -48,15 +48,15 @@ def test_json_policy_crawl_and_merge_and_save(tmp_path):
     assert sorted(e.name for e in lib.entries) == ["a", "b"]
     assert merged_json.exists()
 
-    from json_bridge import load as json_load
+    from pdfmanifest.json_bridge import load as json_load
     reloaded = json_load(str(merged_json))
     assert sorted(e.name for e in reloaded) == ["a", "b"]
 
 
 def test_db_policy_load_creates_db_when_missing(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    import db_bridge as db_bridge_module
-    import db_schema as db_schema_module
+    from pdfmanifest import db_bridge as db_bridge_module
+    from pdfmanifest import db_schema as db_schema_module
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)
 
@@ -69,8 +69,8 @@ def test_db_policy_load_creates_db_when_missing(tmp_path, monkeypatch):
 
 def test_db_policy_crawl_and_merge(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    import db_bridge as db_bridge_module
-    import db_schema as db_schema_module
+    from pdfmanifest import db_bridge as db_bridge_module
+    from pdfmanifest import db_schema as db_schema_module
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)
 
@@ -113,7 +113,7 @@ def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
     assert sorted(e.name for e in lib.entries) == ["a", "b"]
     assert saved_yaml.exists()
 
-    from yaml_bridge import load as yaml_load
+    from pdfmanifest.yaml_bridge import load as yaml_load
     reloaded = yaml_load(str(saved_yaml))
     assert sorted(e.name for e in reloaded) == ["a", "b"]
 

@@ -1,5 +1,5 @@
-from manifest import PdfManifestEntry
-from merge import merge
+from pdfmanifest.manifest import PdfManifestEntry
+from pdfmanifest.merge import merge
 
 
 def _entry(name, **overrides):

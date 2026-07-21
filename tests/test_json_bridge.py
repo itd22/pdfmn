@@ -1,7 +1,7 @@
 import json
 
-from manifest import PdfManifestEntry
-from json_bridge import is_exist, load, save
+from pdfmanifest.manifest import PdfManifestEntry
+from pdfmanifest.json_bridge import is_exist, load, save
 
 
 def test_load_missing_file_returns_empty_list(tmp_path):
