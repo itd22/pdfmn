@@ -1,0 +1,78 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "run_app.sh (load_json)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "run_app.sh",
+        "--action",
+        "load_json"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "run_app.sh (crawl_to_json)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "run_app.sh",
+        "--action",
+        "crawl_to_json",
+        "--top-dir",
+        "."
+      ],
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "run_app.sh (load_yaml)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "run_app.sh",
+        "--action",
+        "load_yaml"
+      ],
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "run_app.sh (crawl_to_yaml)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "run_app.sh",
+        "--action",
+        "crawl_to_yaml",
+        "--top-dir",
+        "."
+      ],
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}
