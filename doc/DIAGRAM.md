@@ -160,9 +160,15 @@ flowchart TD
 `python -m pdfmanifest.main` (i.e. `--tui=yes`, the default) launches an
 interactive ncurses menu instead of the one-shot CLI:
 
-- **Main menu**: Load, Crawl & Merge, Save, Show entries, Settings, Quit.
+- **Main menu**: Load, Crawl & Merge, Save, Show entries, Settings, Save
+  settings to file, Quit.
 - **Settings** edits the same parameters the CLI takes as flags: policy
   (json/yaml/db), top-dir, and the json/yaml paths.
+- **Save settings to file** writes the current policy/paths to
+  `.pdfmanifest_tui_settings.json` in the working directory. The TUI
+  auto-loads that file (if present) the next time it starts, so your last
+  policy/paths come back without re-entering them. An explicit
+  `--top-dir` passed on the command line still overrides the saved one.
 - A single `TuiSession` (in `tui.py`) holds the current policy, paths, and
   the `BooksLib` instance for the whole run. Actions read and mutate that
   one session — nothing is torn down or reset between actions — so the

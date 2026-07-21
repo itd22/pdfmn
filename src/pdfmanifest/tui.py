@@ -1,10 +1,24 @@
 from __future__ import annotations
 
 import curses
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Optional
 
 from .books_lib import BooksLib, POLICIES
+
+SETTINGS_FILE = ".pdfmanifest_tui_settings.json"
+
+SETTINGS_FIELDS = (
+    "policy",
+    "top_dir",
+    "main_json",
+    "merged_json",
+    "main_yaml",
+    "saved_yaml",
+    "yaml_input_path",
+)
 
 MAIN_MENU = [
     ("Load", "load"),
@@ -12,8 +26,22 @@ MAIN_MENU = [
     ("Save", "save"),
     ("Show entries", "show_entries"),
     ("Settings", "settings"),
+    ("Save settings to file", "save_settings"),
     ("Quit", "quit"),
 ]
+
+
+def load_saved_settings(path: str = SETTINGS_FILE) -> dict:
+    """Read previously-saved TUI settings from disk. Missing/invalid file -> {}."""
+    p = Path(path)
+    if not p.exists():
+        return {}
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return {k: raw[k] for k in SETTINGS_FIELDS if k in raw}
 
 
 @dataclass
@@ -71,6 +99,14 @@ class TuiSession:
             ("saved_yaml", "saved.yaml output path", self.saved_yaml),
             ("yaml_input_path", "yaml input_path header (blank = top_dir)", self.yaml_input_path),
         ]
+
+    def settings_dict(self) -> dict:
+        return {field_name: getattr(self, field_name) for field_name in SETTINGS_FIELDS}
+
+
+def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(session.settings_dict(), f, indent=2, ensure_ascii=False)
 
 
 def _draw_header(win, session: TuiSession, max_x: int) -> None:
@@ -184,12 +220,18 @@ def _action_settings(stdscr, session: TuiSession) -> None:
             session.last_message = f"{label} set to '{new_val}'."
 
 
+def _action_save_settings(stdscr, session: TuiSession) -> None:
+    save_saved_settings(session)
+    session.last_message = f"Settings saved to '{SETTINGS_FILE}' (will auto-load next start)."
+
+
 ACTION_HANDLERS = {
     "load": _action_load,
     "crawl_and_merge": _action_crawl_and_merge,
     "save": _action_save,
     "show_entries": _action_show_entries,
     "settings": _action_settings,
+    "save_settings": _action_save_settings,
 }
 
 
@@ -242,4 +284,14 @@ def run_tui(
         saved_yaml=saved_yaml,
         yaml_input_path=yaml_input_path or "",
     )
+
+    saved = load_saved_settings()
+    if saved:
+        for key, value in saved.items():
+            setattr(session, key, value)
+        # an explicit --top-dir on the command line still wins over a saved one
+        if top_dir:
+            session.top_dir = top_dir
+        session.last_message = f"Loaded settings from '{SETTINGS_FILE}'."
+
     curses.wrapper(_main_loop, session)
