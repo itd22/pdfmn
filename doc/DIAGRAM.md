@@ -1,12 +1,27 @@
 # PDF Manifest — Architecture
 
-## Responsibilities
+## Project layout
+
+```
+pdfmanifest/
+├── pytest.ini        # testpaths=tests, pythonpath=src
+├── run_tests.sh       # ./run_tests.sh [pytest args]
+├── run_app.sh          # ./run_app.sh --action ... (wraps src/main.py)
+├── src/                # all implementation
+├── tests/              # all tests (mirrors src/ modules)
+├── doc/                 # this file
+└── samples/              # dummy PDFs for manual testing / demos
+```
+
+## Responsibilities (all under `src/`)
 
 | File            | Responsibility                                                             |
 |------------------|-----------------------------------------------------------------------------|
 | `manifest.py`    | `PdfManifestEntry` dataclass — the record shape. No I/O.                   |
 | `crawl.py`       | `PdfCrawler` — walks a directory tree, returns `List[PdfManifestEntry]`.   |
 | `json_bridge.py` | Only module that reads/writes the JSON manifest files.                    |
+| `yaml_bridge.py` | Only module that reads/writes the 2-document books YAML file.             |
+| `yaml_schema.py` | Schema/field-mapping for the YAML documents (used only by `yaml_bridge.py`). |
 | `db_bridge.py`   | Only module that talks to `books_db.sqlite` (via `db_schema.py`).         |
 | `db_schema.py`   | SQLAlchemy `Book` table definition.                                       |
 | `merge.py`       | Pure in-memory merge: add-only-new-by-`name`. Used for the json policy.   |
