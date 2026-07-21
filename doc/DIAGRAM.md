@@ -160,10 +160,19 @@ flowchart TD
 `python -m pdfmanifest.main` (i.e. `--tui=yes`, the default) launches an
 interactive ncurses menu instead of the one-shot CLI:
 
-- **Main menu**: Load, Crawl & Merge, Save, Show entries, Settings, Save
-  settings to file, Quit.
-- **Settings** edits the same parameters the CLI takes as flags: policy
-  (json/yaml/db), top-dir, and the json/yaml paths.
+- **Main menu**: Load, Crawl & Merge, Save, Save as JSON, Save as YAML,
+  Save as DB, Show entries, Settings, Save settings to file, Quit.
+- **Settings** edits every parameter the CLI takes as flags: policy
+  (json/yaml/db), top-dir, `main.json`/`main.yaml` paths, and the
+  `merged.json`/`saved.yaml` output paths.
+- **Save** writes using whatever the current *policy* is (json ->
+  `merged.json`, yaml -> `saved.yaml`, db -> `books_db.sqlite`).
+- **Save as JSON / Save as YAML / Save as DB** are independent of the
+  current policy: they export whatever is currently in memory to that
+  format regardless of which policy was used to load or crawl it (e.g.
+  load via `json` policy, then still export straight to `books_db.sqlite`
+  or `saved.yaml` without switching policy). These are in addition to the
+  policy-based **Save**, not a replacement for it.
 - **Save settings to file** writes the current policy/paths to
   `.pdfmanifest_tui_settings.json` in the working directory. The TUI
   auto-loads that file (if present) the next time it starts, so your last

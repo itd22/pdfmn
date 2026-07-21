@@ -43,3 +43,28 @@ def test_tui_no_load_json_runs_classic_cli(tmp_path):
     )
     assert result.exit_code == 0
     assert "a" in result.output.splitlines()
+
+
+def test_tui_yes_passes_main_json_and_main_yaml_to_run_tui(monkeypatch, tmp_path):
+    """Regression test: --main-json / --main-yaml must reach run_tui() so
+    Settings starts from the paths the user gave on the command line."""
+    captured = {}
+
+    def fake_run_tui(**kwargs):
+        captured.update(kwargs)
+
+    import pdfmanifest.tui as tui_module
+    monkeypatch.setattr(tui_module, "run_tui", fake_run_tui)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "--tui=yes",
+            "--main-json", "custom_main.json",
+            "--main-yaml", "custom_main.yaml",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured.get("main_json") == "custom_main.json"
+    assert captured.get("main_yaml") == "custom_main.yaml"

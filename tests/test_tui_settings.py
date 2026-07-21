@@ -48,3 +48,22 @@ def test_load_ignores_unknown_keys_and_corrupt_file(tmp_path):
 
     p.write_text("not valid json {{{")
     assert load_saved_settings(str(p)) == {}
+
+
+def test_main_json_and_main_yaml_are_editable_settings_fields():
+    """Regression test: main_json / main_yaml must be editable in Settings
+    and persisted, not hardcoded to "main.json" / "main.yaml"."""
+    session = TuiSession()
+
+    editable_keys = {key for key, _label, _value in session.settings_fields()}
+    assert "main_json" in editable_keys
+    assert "main_yaml" in editable_keys
+
+    assert "main_json" in SETTINGS_FIELDS
+    assert "main_yaml" in SETTINGS_FIELDS
+
+    # editing them actually sticks
+    session.main_json = "custom_main.json"
+    session.main_yaml = "custom_main.yaml"
+    assert session.settings_dict()["main_json"] == "custom_main.json"
+    assert session.settings_dict()["main_yaml"] == "custom_main.yaml"

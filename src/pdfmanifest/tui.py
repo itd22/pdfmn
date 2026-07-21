@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
+from . import db_bridge, json_bridge, yaml_bridge
 from .books_lib import BooksLib, POLICIES
 
 SETTINGS_FILE = ".pdfmanifest_tui_settings.json"
@@ -24,6 +25,9 @@ MAIN_MENU = [
     ("Load", "load"),
     ("Crawl && Merge", "crawl_and_merge"),
     ("Save", "save"),
+    ("Save as JSON", "save_as_json"),
+    ("Save as YAML", "save_as_yaml"),
+    ("Save as DB", "save_as_db"),
     ("Show entries", "show_entries"),
     ("Settings", "settings"),
     ("Save settings to file", "save_settings"),
@@ -93,10 +97,10 @@ class TuiSession:
         return [
             ("policy", "Policy (json/yaml/db)", self.policy),
             ("top_dir", "Top dir to crawl", self.top_dir),
-            ("main_json", "main.json path", self.main_json),
-            ("merged_json", "merged.json output path", self.merged_json),
-            ("main_yaml", "main.yaml path", self.main_yaml),
-            ("saved_yaml", "saved.yaml output path", self.saved_yaml),
+            ("main_json", "main.json path (json policy load source)", self.main_json),
+            ("merged_json", "merged.json output path (json policy save dest)", self.merged_json),
+            ("main_yaml", "main.yaml path (yaml policy load source)", self.main_yaml),
+            ("saved_yaml", "saved.yaml output path (yaml policy save dest)", self.saved_yaml),
             ("yaml_input_path", "yaml input_path header (blank = top_dir)", self.yaml_input_path),
         ]
 
@@ -192,6 +196,48 @@ def _action_save(stdscr, session: TuiSession) -> None:
     session.last_message = f"Saved {len(lib.entries)} entries (policy={session.policy}) -> {dest}."
 
 
+def _current_entries(session: TuiSession):
+    return session.lib.entries if session.lib else []
+
+
+def _action_save_as_json(stdscr, session: TuiSession) -> None:
+    entries = _current_entries(session)
+    if not entries:
+        session.last_message = "Nothing to save -- Load or Crawl & Merge first."
+        return
+    json_bridge.save(session.merged_json, entries)
+    session.last_message = (
+        f"Saved {len(entries)} entries as JSON -> {session.merged_json} "
+        f"(independent of current policy={session.policy})."
+    )
+
+
+def _action_save_as_yaml(stdscr, session: TuiSession) -> None:
+    entries = _current_entries(session)
+    if not entries:
+        session.last_message = "Nothing to save -- Load or Crawl & Merge first."
+        return
+    yaml_bridge.save(session.yaml_input_path or session.top_dir, entries, session.saved_yaml)
+    session.last_message = (
+        f"Saved {len(entries)} entries as YAML -> {session.saved_yaml} "
+        f"(independent of current policy={session.policy})."
+    )
+
+
+def _action_save_as_db(stdscr, session: TuiSession) -> None:
+    entries = _current_entries(session)
+    if not entries:
+        session.last_message = "Nothing to save -- Load or Crawl & Merge first."
+        return
+    if not db_bridge.is_exist():
+        db_bridge.create_db()
+    added = db_bridge.merge_to_db(entries)
+    session.last_message = (
+        f"Merged {len(entries)} entries into books_db.sqlite, {added} new "
+        f"(independent of current policy={session.policy})."
+    )
+
+
 def _action_show_entries(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
     lines = [f"{e.name}  |  {e.title or '(no title)'}  |  {e.file}" for e in lib.entries]
@@ -229,6 +275,9 @@ ACTION_HANDLERS = {
     "load": _action_load,
     "crawl_and_merge": _action_crawl_and_merge,
     "save": _action_save,
+    "save_as_json": _action_save_as_json,
+    "save_as_yaml": _action_save_as_yaml,
+    "save_as_db": _action_save_as_db,
     "show_entries": _action_show_entries,
     "settings": _action_settings,
     "save_settings": _action_save_settings,
