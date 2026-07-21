@@ -5,6 +5,7 @@ import pytest
 from books_lib import BooksLib
 from json_bridge import save as json_save
 from manifest import PdfManifestEntry
+from yaml_bridge import save as yaml_save
 
 
 def _entry(name, **overrides):
@@ -81,6 +82,40 @@ def test_db_policy_crawl_and_merge(tmp_path, monkeypatch):
 
     assert sorted(e.name for e in lib.entries) == ["a", "b"]
     assert sorted(e.name for e in db_bridge_module.load_all()) == ["a", "b"]
+
+
+def test_yaml_policy_load(tmp_path):
+    main_yaml = tmp_path / "main.yaml"
+    yaml_save("/some/input", [_entry("a")], str(main_yaml))
+
+    lib = BooksLib(policy="yaml", yaml_path=str(main_yaml))
+    lib.load()
+
+    assert [e.name for e in lib.entries] == ["a"]
+
+
+def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
+    main_yaml = tmp_path / "main.yaml"
+    saved_yaml = tmp_path / "saved.yaml"
+    yaml_save("/some/input", [_entry("a")], str(main_yaml))
+    pdf_dir = _make_pdf_dir(tmp_path, "a", "b")
+
+    lib = BooksLib(
+        policy="yaml",
+        yaml_path=str(main_yaml),
+        saved_yaml_path=str(saved_yaml),
+        yaml_input_path=str(pdf_dir),
+    )
+    lib.load()
+    lib.crawl_and_merge(str(pdf_dir))
+    lib.save()
+
+    assert sorted(e.name for e in lib.entries) == ["a", "b"]
+    assert saved_yaml.exists()
+
+    from yaml_bridge import load as yaml_load
+    reloaded = yaml_load(str(saved_yaml))
+    assert sorted(e.name for e in reloaded) == ["a", "b"]
 
 
 def test_invalid_policy_raises():
