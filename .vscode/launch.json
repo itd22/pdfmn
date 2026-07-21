@@ -1,6 +1,8 @@
 {
   "version": "0.2.0",
   "configurations": [
+
+
     {
       "name": "pdfmanifest",
       "type": "python",
@@ -20,7 +22,7 @@
       "justMyCode": true
     },
     {
-      "name": "pdfmanifest (crawl)",
+      "name": "pdfmanifest (crawl to_yaml)
       "type": "python",
       "request": "launch",
       "module": "pdfmanifest.main",
@@ -30,9 +32,9 @@
       },
       "args": [
         "--action",
-        "crawl_to_json",
+        "crawl_to_yaml",
         "--top-dir",
-        "."
+        "/mnt/shared/gitlab_books"
       ],
       "console": "integratedTerminal",
       "justMyCode": true
