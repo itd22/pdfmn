@@ -25,6 +25,6 @@ class PdfCrawler:
                 entry = PdfManifestEntry.new_empty_manifest_entry()
                 entry.input_file = str(abs_path)
                 entry.file = str(rel_path)
-                entry.name = abs_path.name
+                entry.name = abs_path.stem
                 entries.append(entry)
         return entries

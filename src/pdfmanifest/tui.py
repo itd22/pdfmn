@@ -124,22 +124,59 @@ def _draw_footer(win, session: TuiSession, max_y: int, max_x: int) -> None:
 
 
 def _prompt(stdscr, prompt: str, initial: str = "") -> str:
+    """Editable text prompt with a real line editor: Backspace/Delete only
+    ever touch the characters the user is editing (never the surrounding
+    window content), so the existing value can be fully replaced -- not
+    just appended to."""
     max_y, max_x = stdscr.getmaxyx()
     win = curses.newwin(3, max_x, max_y - 4, 0)
-    win.border()
-    win.addnstr(0, 2, f" {prompt} ", max_x - 4)
-    win.addnstr(1, 2, f"> {initial}", max_x - 4)
-    win.refresh()
+    win.keypad(True)
 
-    curses.echo()
+    buf = list(initial)
+    cursor = len(buf)
+
+    def redraw():
+        win.erase()
+        win.border()
+        win.addnstr(0, 2, f" {prompt} (Enter=confirm, Esc=cancel) ", max_x - 4)
+        text = "".join(buf)
+        win.addnstr(1, 2, f"> {text}", max_x - 5)
+        win.move(1, min(4 + cursor, max_x - 2))
+        win.refresh()
+
     curses.curs_set(1)
+    redraw()
     try:
-        raw = win.getstr(1, 4 + len(initial))
-        text = raw.decode("utf-8") if raw else ""
+        while True:
+            ch = win.getch()
+            if ch in (curses.KEY_ENTER, ord("\n"), ord("\r")):
+                break
+            elif ch == 27:  # ESC -- cancel, keep the original value
+                buf = list(initial)
+                break
+            elif ch in (curses.KEY_BACKSPACE, 127, 8):
+                if cursor > 0:
+                    del buf[cursor - 1]
+                    cursor -= 1
+            elif ch == curses.KEY_DC:  # Delete
+                if cursor < len(buf):
+                    del buf[cursor]
+            elif ch == curses.KEY_LEFT:
+                cursor = max(0, cursor - 1)
+            elif ch == curses.KEY_RIGHT:
+                cursor = min(len(buf), cursor + 1)
+            elif ch == curses.KEY_HOME:
+                cursor = 0
+            elif ch == curses.KEY_END:
+                cursor = len(buf)
+            elif 0 <= ch < 256 and chr(ch).isprintable():
+                buf.insert(cursor, chr(ch))
+                cursor += 1
+            redraw()
     finally:
-        curses.noecho()
         curses.curs_set(0)
 
+    text = "".join(buf)
     return text if text else initial
 
 

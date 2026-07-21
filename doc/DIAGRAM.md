@@ -164,7 +164,10 @@ interactive ncurses menu instead of the one-shot CLI:
   Save as DB, Show entries, Settings, Save settings to file, Quit.
 - **Settings** edits every parameter the CLI takes as flags: policy
   (json/yaml/db), top-dir, `main.json`/`main.yaml` paths, and the
-  `merged.json`/`saved.yaml` output paths.
+  `merged.json`/`saved.yaml` output paths. Each text field uses a real
+  line editor (arrow keys, Backspace/Delete, Home/End) so the existing
+  value can be fully cleared and replaced, not just appended to. Enter
+  confirms, Esc cancels and keeps the previous value.
 - **Save** writes using whatever the current *policy* is (json ->
   `merged.json`, yaml -> `saved.yaml`, db -> `books_db.sqlite`).
 - **Save as JSON / Save as YAML / Save as DB** are independent of the
