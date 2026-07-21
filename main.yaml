@@ -1,0 +1,42 @@
+---
+input_path: samples
+---
+- valid_pdf: true
+  input_file: samples/dummy-book-one.pdf
+  file: dummy-book-one.pdf
+  title: Dummy Book One
+  author: A. Author
+  size: 588
+  Optimized: false
+  isbn: 978-0-00-000001-1
+  name: dummy-book-one
+  year: '2021'
+  isbn_normalized: '9780000000011'
+  book_id: Dummy Book One-A. Author-2021
+  book_type: pdf
+- valid_pdf: true
+  input_file: samples/subfolder/dummy-book-three.pdf
+  file: subfolder/dummy-book-three.pdf
+  title: Dummy Book Three
+  author: C. Scribe
+  size: 590
+  Optimized: false
+  isbn: 978-0-00-000003-5
+  name: dummy-book-three
+  year: '2023'
+  isbn_normalized: '9780000000035'
+  book_id: Dummy Book Three-C. Scribe-2023
+  book_type: pdf
+- valid_pdf: true
+  input_file: samples/dummy-book-two.pdf
+  file: dummy-book-two.pdf
+  title: Dummy Book Two
+  author: B. Writer
+  size: 588
+  Optimized: false
+  isbn: 978-0-00-000002-8
+  name: dummy-book-two
+  year: '2022'
+  isbn_normalized: '9780000000028'
+  book_id: Dummy Book Two-B. Writer-2022
+  book_type: pdf
