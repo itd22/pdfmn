@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "pdfmanifest",
+      "type": "python",
+      "request": "launch",
+      "module": "pdfmanifest.main",
+      "pythonPath": "/bin/python3",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": [
+        "--action",
+        "load_json",
+        "--main-json",
+        "main.json"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "pdfmanifest (crawl)",
+      "type": "python",
+      "request": "launch",
+      "module": "pdfmanifest.main",
+      "pythonPath": "/bin/python3",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": [
+        "--action",
+        "crawl_to_json",
+        "--top-dir",
+        "."
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}
