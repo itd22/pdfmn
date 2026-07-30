@@ -39,3 +39,38 @@ commit from before the packaging work, so this milestone is tagged
 commit where forkpdfpz has the `src/pdfpz/{core,actions}` layout, the
 `pdfpz` console script, and the `class_pdf_path` importability fix — i.e.
 the first point where it's actually usable as a dependency.
+
+## Unreleased (package branch), continued
+
+**Bumped `backend` submodule pin to `v0.3.0`; deleted `yaml_schema.py`.**
+
+Both `pdfpz::BooksLib` and `pdfmanifest::BooksLib` turned out to hold the
+same thing — `pdfpz`'s `books_manifest: Optional[BooksManifest]` wraps a
+`List[PdfManifestEntry]`, and `pdfmanifest`'s `load()` returned exactly
+that same list — and forkpdfpz already had its own working yaml
+load/save (`BooksActions.load_books_manifest` /
+`BooksManifest.save_books_manifest`) for the identical 2-document
+format. So pdfmn was maintaining a second, independent yaml parser
+(`yaml_schema.py`'s `entry_from_dict`/`entry_to_dict`) for data forkpdfpz
+already knew how to read and write.
+
+- forkpdfpz (`v0.3.0`): made `BooksActions.load_books_manifest` a
+  `@staticmethod` — it never touched `self`, so this lets it be called
+  directly as `BooksActions.load_books_manifest(path)` without
+  constructing a throwaway `BooksLib` just to load a file.
+- `backend` submodule pin bumped from `v0.2.0` to `v0.3.0` for that
+  staticmethod change.
+- `yaml_bridge.py`'s `load()`/`save()` now delegate to
+  `BooksActions.load_books_manifest()` /
+  `BooksManifest.save_books_manifest()` instead of
+  `yaml_schema.entry_from_dict`/`entry_to_dict`. `load()` still checks
+  the file exists first (matching the previous silent `[]` on a missing
+  file, rather than forkpdfpz's own `print(...)` for that case).
+- Deleted `src/pdfmanifest/yaml_schema.py` — with `yaml_bridge.py` no
+  longer calling it, nothing else in the repo referenced it.
+- Verified with a manual round-trip (save then load an entry through the
+  new `yaml_bridge`, both packages editable-installed) that the format
+  and field names (`Optimized` capitalization, key order, etc.) are
+  unchanged — not run as part of the test suite.
+- `json_bridge.py`/`db_bridge.py` are untouched: forkpdfpz has no
+  equivalent for those, so there's nothing to unify there.
