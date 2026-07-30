@@ -1,4 +1,4 @@
-from pdfmanifest.manifest import PdfManifestEntry
+from pdfpz.core.class_book_manifest import PdfManifestEntry
 from pdfmanifest.merge import merge
 
 

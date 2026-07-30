@@ -7,5 +7,7 @@ if command -v pdfmanifest >/dev/null 2>&1; then
     pdfmanifest "$@"
 else
     # Not installed -> run straight from src/ without installing.
-    PYTHONPATH="src" /bin/python3 -m pdfmanifest.main "$@"
+    # backend/src is the pdfpz git submodule (github.com/sdhube/forkpdfpz),
+    # needed for pdfpz.core.class_book_manifest.PdfManifestEntry.
+    PYTHONPATH="src:backend/src" /bin/python3 -m pdfmanifest.main "$@"
 fi

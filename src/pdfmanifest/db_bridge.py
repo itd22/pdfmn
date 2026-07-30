@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from .db_schema import Base, Book
-from .manifest import PdfManifestEntry
+from pdfpz.core.class_book_manifest import PdfManifestEntry
 
 DB_NAME = "books_db"
 DB_FILE = f"{DB_NAME}.sqlite"

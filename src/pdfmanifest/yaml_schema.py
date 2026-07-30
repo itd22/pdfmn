@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .manifest import PdfManifestEntry
+from pdfpz.core.class_book_manifest import PdfManifestEntry
 
 # Document 1: header metadata
 INPUT_PATH_KEY = "input_path"

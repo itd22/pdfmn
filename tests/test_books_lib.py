@@ -4,7 +4,7 @@ import pytest
 
 from pdfmanifest.books_lib import BooksLib
 from pdfmanifest.json_bridge import save as json_save
-from pdfmanifest.manifest import PdfManifestEntry
+from pdfpz.core.class_book_manifest import PdfManifestEntry
 from pdfmanifest.yaml_bridge import save as yaml_save
 
 

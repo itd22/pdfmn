@@ -6,7 +6,7 @@ from typing import List
 import yaml
 
 from . import yaml_schema
-from .manifest import PdfManifestEntry
+from pdfpz.core.class_book_manifest import PdfManifestEntry
 
 
 def is_exist(path: str) -> bool:
