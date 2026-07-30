@@ -45,7 +45,7 @@ Responsibility
 
 Interactions with "Shelf"
 
-Action| Purpose| Example
+|Action| Purpose| Example
 "load"| Obtain the current shelf state| Load books for display
 "refresh"| Reload the view after shelf changes| Refresh the book list
 "display"| Render shelf information| Display books, metadata, and status
