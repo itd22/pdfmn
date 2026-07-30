@@ -15,3 +15,24 @@
 | `merge()` | Combine multiple data sources | Many → One |
 | `sync()` | Make two copies consistent | A ⇄ B |
 | `clone()` | Create a deep copy | Object → Independent Copy |
+
+"Shelf" – Responsibilities & Verbs
+
+Verb| Purpose| Examples
+"import"| Bring PDFs into the shelf from external sources| Import files from a directory or another system
+"load"| Read shelf state or metadata| Load YAML, JSON, or database records
+"extract"| Read information from PDFs| Extract document metadata and properties
+"sanitize"| Remove or normalize unsafe or unwanted content| Sanitize PDF structure and metadata
+"update"| Modify metadata or shelf records| Update title, author, tags, or status
+"copy"| Duplicate PDFs or metadata| Copy files to another location
+"move"| Relocate managed files| Move PDFs into shelf storage
+"rename"| Change managed filenames| Rename files using a naming convention
+"publish"| Make book information available to other components| Publish book details to the UI or API
+"save"| Persist shelf state| Save YAML, JSON, or database records
+"write"| Write output files| Write a newly reconstructed PDF
+"read"| Read input files| Read PDFs, YAML, JSON, or database entries
+"export"| Produce data for external consumption| Export metadata or reports
+
+Typical workflow
+
+import → load → extract → sanitize → update → write → move → rename → save → publish → export
