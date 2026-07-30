@@ -36,3 +36,60 @@ Verb| Purpose| Examples
 Typical workflow
 
 import → load → extract → sanitize → update → write → move → rename → save → publish → export
+
+"ShelfDisplay" – Responsibilities & Interaction with "Shelf"
+
+Responsibility
+
+"ShelfDisplay" presents the contents and state of a "Shelf" to the user. It does not import, sanitize, move, or modify PDF files directly.
+
+Interactions with "Shelf"
+
+Action| Purpose| Example
+"load"| Obtain the current shelf state| Load books for display
+"refresh"| Reload the view after shelf changes| Refresh the book list
+"display"| Render shelf information| Display books, metadata, and status
+"filter"| Show a subset of books| Filter by author or tag
+"sort"| Change display order| Sort by title or year
+"select"| Select one or more books| Select a book to inspect
+"view"| Show detailed information| View book metadata
+"search"| Find matching books| Search by title or ISBN
+"notify"| Present shelf events| Show import or sanitize completion
+"request"| Ask "Shelf" to perform an operation| Request import, sanitize, or rename
+"observe"| Listen for shelf updates| Update UI when the shelf changes
+
+Typical interaction
+
+User
+  │
+  ▼
+ShelfDisplay
+  │ request
+  ▼
+Shelf
+  │ performs operation
+  ▼
+ShelfDisplay
+  │ refresh
+  ▼
+Display updated shelf information
+
+Responsibilities
+
+Shelf
+
+- Imports PDFs
+- Sanitizes PDFs and metadata
+- Writes new PDFs
+- Moves and renames files
+- Reads and writes YAML/JSON/database
+- Maintains the shelf state
+
+ShelfDisplay
+
+- Displays shelf contents
+- Displays book details and status
+- Filters, sorts, and searches books
+- Handles user selection
+- Requests operations from "Shelf"
+- Refreshes when the "Shelf" changes
