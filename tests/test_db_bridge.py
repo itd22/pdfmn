@@ -9,8 +9,8 @@ from pdfpz.core.class_book_manifest import PdfManifestEntry
 def db(tmp_path, monkeypatch):
     """Fresh db_bridge module bound to an isolated books_db.sqlite per test."""
     monkeypatch.chdir(tmp_path)
-    from pdfmanifest import db_bridge as db_bridge_module
-    from pdfmanifest import db_schema as db_schema_module
+    from pdftui import db_bridge as db_bridge_module
+    from pdftui import db_schema as db_schema_module
 
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)

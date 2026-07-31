@@ -1,6 +1,6 @@
 import json
 
-from pdfmanifest.tui import SETTINGS_FIELDS, TuiSession, load_saved_settings, save_saved_settings
+from pdftui.tui import SETTINGS_FIELDS, TuiSession, load_saved_settings, save_saved_settings
 
 
 def test_load_saved_settings_missing_file_returns_empty(tmp_path):

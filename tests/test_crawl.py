@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pdfmanifest.crawl import PdfCrawler
+from pdftui.crawl import PdfCrawler
 
 
 def _touch(path):

@@ -12,7 +12,7 @@ from .merge import merge as merge_entries
 POLICIES = ("json", "yaml", "db")
 
 
-class BooksLib:
+class BooksSpine:
     """Holds the in-memory list of book entries and dispatches storage
     operations to json_bridge, yaml_bridge, or db_bridge depending on policy.
     Only json_bridge, yaml_bridge, and db_bridge are allowed to touch

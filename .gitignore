@@ -217,5 +217,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# pdfmanifest TUI session settings (local, not source)
-.pdfmanifest_tui_settings.json
+# pdftui TUI session settings (local, not source)
+.pdftui_tui_settings.json

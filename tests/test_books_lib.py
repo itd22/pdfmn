@@ -2,10 +2,10 @@ import importlib
 
 import pytest
 
-from pdfmanifest.books_lib import BooksLib
-from pdfmanifest.json_bridge import save as json_save
+from pdftui.books_lib import BooksSpine
+from pdftui.json_bridge import save as json_save
 from pdfpz.core.class_book_manifest import PdfManifestEntry
-from pdfmanifest.yaml_bridge import save as yaml_save
+from pdftui.yaml_bridge import save as yaml_save
 
 
 def _entry(name, **overrides):
@@ -28,7 +28,7 @@ def test_json_policy_load(tmp_path):
     main_json = tmp_path / "main.json"
     json_save(str(main_json), [_entry("a")])
 
-    lib = BooksLib(policy="json", json_path=str(main_json))
+    lib = BooksSpine(policy="json", json_path=str(main_json))
     lib.load()
 
     assert [e.name for e in lib.entries] == ["a"]
@@ -40,7 +40,7 @@ def test_json_policy_crawl_and_merge_and_save(tmp_path):
     json_save(str(main_json), [_entry("a")])
     pdf_dir = _make_pdf_dir(tmp_path, "a", "b")
 
-    lib = BooksLib(policy="json", json_path=str(main_json), merged_json_path=str(merged_json))
+    lib = BooksSpine(policy="json", json_path=str(main_json), merged_json_path=str(merged_json))
     lib.load()
     lib.crawl_and_merge(str(pdf_dir))
     lib.save()
@@ -48,19 +48,19 @@ def test_json_policy_crawl_and_merge_and_save(tmp_path):
     assert sorted(e.name for e in lib.entries) == ["a", "b"]
     assert merged_json.exists()
 
-    from pdfmanifest.json_bridge import load as json_load
+    from pdftui.json_bridge import load as json_load
     reloaded = json_load(str(merged_json))
     assert sorted(e.name for e in reloaded) == ["a", "b"]
 
 
 def test_db_policy_load_creates_db_when_missing(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    from pdfmanifest import db_bridge as db_bridge_module
-    from pdfmanifest import db_schema as db_schema_module
+    from pdftui import db_bridge as db_bridge_module
+    from pdftui import db_schema as db_schema_module
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)
 
-    lib = BooksLib(policy="db")
+    lib = BooksSpine(policy="db")
     lib.load()
 
     assert db_bridge_module.is_exist() is True
@@ -69,14 +69,14 @@ def test_db_policy_load_creates_db_when_missing(tmp_path, monkeypatch):
 
 def test_db_policy_crawl_and_merge(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    from pdfmanifest import db_bridge as db_bridge_module
-    from pdfmanifest import db_schema as db_schema_module
+    from pdftui import db_bridge as db_bridge_module
+    from pdftui import db_schema as db_schema_module
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)
 
     pdf_dir = _make_pdf_dir(tmp_path, "a", "b")
 
-    lib = BooksLib(policy="db")
+    lib = BooksSpine(policy="db")
     lib.load()
     lib.crawl_and_merge(str(pdf_dir))
 
@@ -88,7 +88,7 @@ def test_yaml_policy_load(tmp_path):
     main_yaml = tmp_path / "main.yaml"
     yaml_save("/some/input", [_entry("a")], str(main_yaml))
 
-    lib = BooksLib(policy="yaml", yaml_path=str(main_yaml))
+    lib = BooksSpine(policy="yaml", yaml_path=str(main_yaml))
     lib.load()
 
     assert [e.name for e in lib.entries] == ["a"]
@@ -100,7 +100,7 @@ def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
     yaml_save("/some/input", [_entry("a")], str(main_yaml))
     pdf_dir = _make_pdf_dir(tmp_path, "a", "b")
 
-    lib = BooksLib(
+    lib = BooksSpine(
         policy="yaml",
         yaml_path=str(main_yaml),
         saved_yaml_path=str(saved_yaml),
@@ -113,11 +113,11 @@ def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
     assert sorted(e.name for e in lib.entries) == ["a", "b"]
     assert saved_yaml.exists()
 
-    from pdfmanifest.yaml_bridge import load as yaml_load
+    from pdftui.yaml_bridge import load as yaml_load
     reloaded = yaml_load(str(saved_yaml))
     assert sorted(e.name for e in reloaded) == ["a", "b"]
 
 
 def test_invalid_policy_raises():
     with pytest.raises(ValueError):
-        BooksLib(policy="xml")
+        BooksSpine(policy="xml")

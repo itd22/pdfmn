@@ -3,7 +3,7 @@ import importlib
 import pytest
 
 from pdfpz.core.class_book_manifest import PdfManifestEntry
-from pdfmanifest.tui import (
+from pdftui.tui import (
     TuiSession,
     _action_save_as_db,
     _action_save_as_json,
@@ -31,7 +31,7 @@ def test_save_as_json_works_regardless_of_current_policy(tmp_path):
 
     _action_save_as_json(None, session)
 
-    from pdfmanifest.json_bridge import load
+    from pdftui.json_bridge import load
     assert sorted(e.name for e in load(str(out))) == ["a", "b"]
     assert "independent of current policy" in session.last_message
 
@@ -42,15 +42,15 @@ def test_save_as_yaml_works_regardless_of_current_policy(tmp_path):
 
     _action_save_as_yaml(None, session)
 
-    from pdfmanifest.yaml_bridge import load
+    from pdftui.yaml_bridge import load
     assert sorted(e.name for e in load(str(out))) == ["a", "b"]
 
 
 def test_save_as_db_works_regardless_of_current_policy(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    import pdfmanifest.db_bridge as db_bridge_module
-    import pdfmanifest.db_schema as db_schema_module
-    import pdfmanifest.tui as tui_module
+    import pdftui.db_bridge as db_bridge_module
+    import pdftui.db_schema as db_schema_module
+    import pdftui.tui as tui_module
 
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)

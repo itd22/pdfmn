@@ -4,10 +4,10 @@
 
 
     {
-      "name": "pdfmanifest",
+      "name": "pdftui",
       "type": "python",
       "request": "launch",
-      "module": "pdfmanifest.main",
+      "module": "pdftui.main",
       "pythonPath": "/bin/python3",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src"
@@ -22,10 +22,10 @@
       "justMyCode": true
     },
     {
-      "name": "pdfmanifest (crawl to_yaml)
+      "name": "pdftui (crawl to_yaml)",
       "type": "python",
       "request": "launch",
-      "module": "pdfmanifest.main",
+      "module": "pdftui.main",
       "pythonPath": "/bin/python3",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src"

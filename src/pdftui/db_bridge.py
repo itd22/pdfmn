@@ -6,7 +6,7 @@ from typing import List
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .db_schema import Base, Book
+from .db_schema import Base, BookOrm
 from pdfpz.core.class_book_manifest import PdfManifestEntry
 
 DB_NAME = "books_db"
@@ -27,8 +27,8 @@ def create_db() -> None:
     Base.metadata.create_all(engine)
 
 
-def _entry_to_book(entry: PdfManifestEntry) -> Book:
-    return Book(
+def _entry_to_book(entry: PdfManifestEntry) -> BookOrm:
+    return BookOrm(
         valid_pdf=entry.valid_pdf,
         file=entry.file,
         input_file=entry.input_file,
@@ -45,7 +45,7 @@ def _entry_to_book(entry: PdfManifestEntry) -> Book:
     )
 
 
-def _book_to_entry(book: Book) -> PdfManifestEntry:
+def _book_to_entry(book: BookOrm) -> PdfManifestEntry:
     entry = PdfManifestEntry.new_empty_manifest_entry()
     for field in (
         "valid_pdf", "file", "input_file", "title", "author", "size",
@@ -60,7 +60,7 @@ def load_all() -> List[PdfManifestEntry]:
     """Return every entry currently stored in the database."""
     session = Session()
     try:
-        return [_book_to_entry(b) for b in session.query(Book).all()]
+        return [_book_to_entry(b) for b in session.query(BookOrm).all()]
     finally:
         session.close()
 
@@ -79,7 +79,7 @@ def merge_to_db(entries: List[PdfManifestEntry]) -> int:
     """Add entries whose name isn't already in the database. Returns count added."""
     session = Session()
     try:
-        existing_names = {row[0] for row in session.query(Book.name).all()}
+        existing_names = {row[0] for row in session.query(BookOrm.name).all()}
         new_books = []
         seen = set()
         for e in entries:

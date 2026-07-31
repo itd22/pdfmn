@@ -1,6 +1,6 @@
 from click.testing import CliRunner
 
-from pdfmanifest.main import main
+from pdftui.main import main
 
 
 def test_tui_defaults_to_yes_in_help():
@@ -53,7 +53,7 @@ def test_tui_yes_passes_main_json_and_main_yaml_to_run_tui(monkeypatch, tmp_path
     def fake_run_tui(**kwargs):
         captured.update(kwargs)
 
-    import pdfmanifest.tui as tui_module
+    import pdftui.tui as tui_module
     monkeypatch.setattr(tui_module, "run_tui", fake_run_tui)
 
     runner = CliRunner()

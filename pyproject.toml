@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pdfmanifest"
+name = "pdftui"
 version = "0.1.0"
 description = "Crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)."
 requires-python = ">=3.9"
@@ -13,13 +13,13 @@ dependencies = [
     "PyYAML>=6.0",
     "windows-curses>=2.3; sys_platform == 'win32'",
 ]
-# pdfmanifest also imports pdfpz.core.class_book_manifest.PdfManifestEntry
+# pdftui also imports pdfpz.core.class_book_manifest.PdfManifestEntry
 # from the `backend` git submodule (github.com/sdhube/forkpdfpz, pinned to
-# v0.2.0) rather than a package index, so it can't be listed here. Install
+# v0.4.0) rather than a package index, so it can't be listed here. Install
 # it separately: `pip install -e ./backend -e .` (see run_app.sh / CHANGELOG.md).
 
 [project.scripts]
-pdfmanifest = "pdfmanifest.main:main"
+pdftui = "pdftui.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

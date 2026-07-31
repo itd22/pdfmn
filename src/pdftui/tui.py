@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from . import db_bridge, json_bridge, yaml_bridge
-from .books_lib import BooksLib, POLICIES
+from .books_lib import BooksSpine, POLICIES
 
-SETTINGS_FILE = ".pdfmanifest_tui_settings.json"
+SETTINGS_FILE = ".pdftui_tui_settings.json"
 
 SETTINGS_FIELDS = (
     "policy",
@@ -66,17 +66,17 @@ class TuiSession:
     main_yaml: str = "main.yaml"
     saved_yaml: str = "saved.yaml"
     yaml_input_path: str = ""
-    lib: Optional[BooksLib] = None
+    lib: Optional[BooksSpine] = None
     last_message: str = "Welcome. Pick an action."
 
-    def get_lib(self) -> BooksLib:
-        """Return the BooksLib for the current policy, building it (with
+    def get_lib(self) -> BooksSpine:
+        """Return the BooksSpine for the current policy, building it (with
         the current paths) only if it doesn't exist yet or the policy
         changed -- never as a side effect of running an action, so the
         in-memory entries survive repeated Load / Crawl & Merge / Save
         calls."""
         if self.lib is None or self.lib.policy != self.policy:
-            self.lib = BooksLib(
+            self.lib = BooksSpine(
                 policy=self.policy,
                 json_path=self.main_json,
                 merged_json_path=self.merged_json,
@@ -115,7 +115,7 @@ def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> Non
 
 def _draw_header(win, session: TuiSession, max_x: int) -> None:
     entry_count = len(session.lib.entries) if session.lib else 0
-    header = f" pdfmanifest TUI | policy={session.policy} | entries in memory: {entry_count} "
+    header = f" pdftui TUI | policy={session.policy} | entries in memory: {entry_count} "
     win.addnstr(0, 0, header.ljust(max_x), max_x, curses.A_REVERSE)
 
 
