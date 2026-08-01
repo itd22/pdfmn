@@ -1,5 +1,5 @@
-from pdfmanifest.manifest import PdfManifestEntry
-from pdfmanifest.merge import merge
+from pdfpz.core.class_book_manifest import PdfManifestEntry
+from pdftui.merge import merge
 
 
 def _entry(name, **overrides):

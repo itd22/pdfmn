@@ -1,7 +1,7 @@
 import json
 
-from pdfmanifest.manifest import PdfManifestEntry
-from pdfmanifest.json_bridge import is_exist, load, save
+from pdfpz.core.class_book_manifest import PdfManifestEntry
+from pdftui.json_bridge import is_exist, load, save
 
 
 def test_load_missing_file_returns_empty_list(tmp_path):

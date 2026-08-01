@@ -1,6 +1,6 @@
 import click
 
-from .books_lib import BooksLib
+from .books_lib import BooksSpine
 
 ACTIONS = ["load_json", "load_yaml", "load_db", "crawl_to_json", "crawl_to_yaml", "crawl_to_db"]
 
@@ -48,7 +48,7 @@ def main(tui, action, top_dir, main_json, merged_json, main_yaml, saved_yaml, ya
         raise click.UsageError("--action is required when --tui=no")
 
     policy = POLICY_BY_ACTION[action]
-    lib = BooksLib(
+    lib = BooksSpine(
         policy=policy,
         json_path=main_json,
         merged_json_path=merged_json,
@@ -67,7 +67,7 @@ def main(tui, action, top_dir, main_json, merged_json, main_yaml, saved_yaml, ya
         lib.load()
         crawled = lib.crawl_and_merge(top_dir)
         lib.save()
-        click.echo(f"crawled {len(crawled)}, library now has {len(lib.entries)} entries")
+        click.echo(f"crawled {len(crawled)}, library now has {len(lib.shelf.books)} entries")
 
 
 if __name__ == "__main__":

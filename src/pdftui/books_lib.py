@@ -6,17 +6,24 @@ from . import db_bridge
 from . import json_bridge
 from . import yaml_bridge
 from .crawl import PdfCrawler
-from .manifest import PdfManifestEntry
+from pdfpz.core.class_book_manifest import BooksShelf, PdfManifestEntry
 from .merge import merge as merge_entries
 
 POLICIES = ("json", "yaml", "db")
 
 
-class BooksLib:
+class BooksSpine:
     """Holds the in-memory list of book entries and dispatches storage
     operations to json_bridge, yaml_bridge, or db_bridge depending on policy.
     Only json_bridge, yaml_bridge, and db_bridge are allowed to touch
     json/yaml/db directly.
+
+    The entry list itself is a pdfpz.core.class_book_manifest.BooksShelf
+    (self.shelf), reused directly rather than reimplemented -- BooksSpine
+    used to keep its own bare list for exactly the "list of
+    PdfManifestEntry + a way to look at it" role pdfpz::BooksShelf
+    already covers. No backward-compatible `entries` alias is kept --
+    callers read/write self.shelf.books directly.
     """
 
     def __init__(
@@ -36,21 +43,21 @@ class BooksLib:
         self.yaml_path = yaml_path
         self.saved_yaml_path = saved_yaml_path
         self.yaml_input_path = yaml_input_path
-        self.entries: List[PdfManifestEntry] = []
+        self.shelf: BooksShelf = BooksShelf()
 
     def load(self) -> List[PdfManifestEntry]:
         if self.policy == "json":
-            self.entries = json_bridge.load(self.json_path)
+            self.shelf.books = json_bridge.load(self.json_path)
         elif self.policy == "yaml":
-            self.entries = yaml_bridge.load(self.yaml_path)
+            self.shelf.books = yaml_bridge.load(self.yaml_path)
         else:
             if not db_bridge.is_exist():
                 db_bridge.create_db()
-            self.entries = db_bridge.load_all()
-        return self.entries
+            self.shelf.books = db_bridge.load_all()
+        return self.shelf.books
 
     def print_names(self) -> None:
-        for entry in self.entries:
+        for entry in self.shelf.books:
             print(entry.name)
 
     def crawl_and_merge(self, top_dir: str) -> List[PdfManifestEntry]:
@@ -59,15 +66,15 @@ class BooksLib:
 
         if self.policy == "db":
             db_bridge.merge_to_db(crawled_entries)
-            self.entries = db_bridge.load_all()
+            self.shelf.books = db_bridge.load_all()
         else:
-            self.entries = merge_entries(self.entries, crawled_entries)
+            self.shelf.books = merge_entries(self.shelf.books, crawled_entries)
 
         return crawled_entries
 
     def save(self) -> None:
         if self.policy == "json":
-            json_bridge.save(self.merged_json_path, self.entries)
+            json_bridge.save(self.merged_json_path, self.shelf.books)
         elif self.policy == "yaml":
-            yaml_bridge.save(self.yaml_input_path, self.entries, self.saved_yaml_path)
+            yaml_bridge.save(self.yaml_input_path, self.shelf.books, self.saved_yaml_path)
         # db policy: db_bridge.merge_to_db already persisted the changes

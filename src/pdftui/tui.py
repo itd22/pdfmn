@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from . import db_bridge, json_bridge, yaml_bridge
-from .books_lib import BooksLib, POLICIES
+from .books_lib import BooksSpine, POLICIES
 
-SETTINGS_FILE = ".pdfmanifest_tui_settings.json"
+SETTINGS_FILE = ".pdftui_tui_settings.json"
 
 SETTINGS_FIELDS = (
     "policy",
@@ -66,17 +66,17 @@ class TuiSession:
     main_yaml: str = "main.yaml"
     saved_yaml: str = "saved.yaml"
     yaml_input_path: str = ""
-    lib: Optional[BooksLib] = None
+    lib: Optional[BooksSpine] = None
     last_message: str = "Welcome. Pick an action."
 
-    def get_lib(self) -> BooksLib:
-        """Return the BooksLib for the current policy, building it (with
+    def get_lib(self) -> BooksSpine:
+        """Return the BooksSpine for the current policy, building it (with
         the current paths) only if it doesn't exist yet or the policy
         changed -- never as a side effect of running an action, so the
         in-memory entries survive repeated Load / Crawl & Merge / Save
         calls."""
         if self.lib is None or self.lib.policy != self.policy:
-            self.lib = BooksLib(
+            self.lib = BooksSpine(
                 policy=self.policy,
                 json_path=self.main_json,
                 merged_json_path=self.merged_json,
@@ -114,8 +114,8 @@ def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> Non
 
 
 def _draw_header(win, session: TuiSession, max_x: int) -> None:
-    entry_count = len(session.lib.entries) if session.lib else 0
-    header = f" pdfmanifest TUI | policy={session.policy} | entries in memory: {entry_count} "
+    entry_count = len(session.lib.shelf.books) if session.lib else 0
+    header = f" pdftui TUI | policy={session.policy} | entries in memory: {entry_count} "
     win.addnstr(0, 0, header.ljust(max_x), max_x, curses.A_REVERSE)
 
 
@@ -227,7 +227,7 @@ def _select_from(stdscr, title: str, items: List[str], start_index: int = 0) -> 
 def _action_load(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
     lib.load()
-    session.last_message = f"Loaded {len(lib.entries)} entries (policy={session.policy})."
+    session.last_message = f"Loaded {len(lib.shelf.books)} entries (policy={session.policy})."
 
 
 def _action_crawl_and_merge(stdscr, session: TuiSession) -> None:
@@ -241,7 +241,7 @@ def _action_crawl_and_merge(stdscr, session: TuiSession) -> None:
     crawled = lib.crawl_and_merge(top_dir)
     session.last_message = (
         f"Crawled {len(crawled)} PDF(s) under '{top_dir}', "
-        f"library now has {len(lib.entries)} entries."
+        f"library now has {len(lib.shelf.books)} entries."
     )
 
 
@@ -249,11 +249,11 @@ def _action_save(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
     lib.save()
     dest = {"json": session.merged_json, "yaml": session.saved_yaml, "db": "books_db.sqlite"}[session.policy]
-    session.last_message = f"Saved {len(lib.entries)} entries (policy={session.policy}) -> {dest}."
+    session.last_message = f"Saved {len(lib.shelf.books)} entries (policy={session.policy}) -> {dest}."
 
 
 def _current_entries(session: TuiSession):
-    return session.lib.entries if session.lib else []
+    return session.lib.shelf.books if session.lib else []
 
 
 def _action_save_as_json(stdscr, session: TuiSession) -> None:
@@ -296,10 +296,10 @@ def _action_save_as_db(stdscr, session: TuiSession) -> None:
 
 def _action_show_entries(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
-    lines = [f"{e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}" for e in lib.entries if len(e.title)>0]
+    lines = [f"{e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}" for e in lib.shelf.books if len(e.title)>0]
     if not lines:
         lines = ["(no entries loaded -- try Load or Crawl & Merge first)"]
-    _select_from(stdscr, f"Entries ({len(lib.entries)}) -- q to go back", lines, 0)
+    _select_from(stdscr, f"Entries ({len(lib.shelf.books)}) -- q to go back", lines, 0)
 
 
 def _action_settings(stdscr, session: TuiSession) -> None:
