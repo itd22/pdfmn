@@ -122,3 +122,30 @@ Package rename:
 - Old CHANGELOG entries above are left as written — they're a record of
   what was true when each change landed (e.g. `src/pdfmanifest/...`
   paths that no longer exist), not a description of the current tree.
+
+## Unreleased (package branch), continued once more
+
+**Bumped `backend` submodule pin to `v0.5.0`; updated `yaml_bridge.save()` for the `BooksShelf`/`BooksCollection` responsibility split.**
+
+forkpdfpz moved `input_path` and `save_books_manifest` off `BooksShelf`
+and onto `BooksCollection` (`BooksCollection.save_books_manifest()` now
+takes no arguments — it writes `self.books_manifest` to `self.yaml_path`).
+`yaml_bridge.py`'s `save()` updated to match: builds a one-off
+`BooksCollection.from_yaml_path(output_path)`, sets `.input_path` and
+`.books_manifest` on it, then calls `.save_books_manifest()` — instead
+of the old `BooksShelf(input_path=..., books=...).save_books_manifest(output_path)`.
+`load()` is unaffected — `BooksActions.load_books_manifest()`'s return
+value still exposes `.books` the same way.
+
+`save()`'s own signature (`save(input_path, books_list, output_path)`)
+is unchanged, so `main.py`, `tui.py`, and `BooksSpine` needed no edits.
+
+Verified with a manual save/load round-trip (both packages
+editable-installed): the yaml format, including the `input_path` header,
+is unchanged from the caller's point of view. Not run via the test suite.
+
+Note: forkpdfpz's `v0.5.0` also fixed a real bug in its own CLI
+(`--update-yaml-info` previously always wrote to a hardcoded
+`./files_info.yaml` instead of the loaded file) — that fix is internal
+to forkpdfpz's `cli.py`/`class_books_actions.py` and doesn't touch
+anything `pdftui` calls.

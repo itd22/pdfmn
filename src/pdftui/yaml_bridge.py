@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 from pdfpz.actions.class_books_actions import BooksActions
-from pdfpz.core.class_book_manifest import BooksShelf, PdfManifestEntry
+from pdfpz.core.class_book_manifest import BooksCollection, BooksShelf, PdfManifestEntry
 
 
 def is_exist(path: str) -> bool:
@@ -30,6 +30,14 @@ def load(path: str) -> List[PdfManifestEntry]:
 def save(input_path: str, books_list: List[PdfManifestEntry], output_path: str = "saved.yaml") -> None:
     """Save books_list as a 2-document YAML file: header (input_path) + books list.
 
-    Delegates to pdfpz's BooksShelf.save_books_manifest for the same reason.
+    Delegates to pdfpz's BooksCollection.save_books_manifest for the same
+    reason. BooksCollection.save_books_manifest() takes no arguments and
+    always writes to its own yaml_path, so this builds a one-off
+    BooksCollection around output_path/input_path/books_list rather than
+    keeping one around between calls -- nothing here persists a
+    BooksCollection across saves today.
     """
-    BooksShelf(input_path=input_path, books=list(books_list)).save_books_manifest(output_path)
+    collection = BooksCollection.from_yaml_path(output_path)
+    collection.input_path = input_path
+    collection.books_manifest = BooksShelf(books=list(books_list))
+    collection.save_books_manifest()
