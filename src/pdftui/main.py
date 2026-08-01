@@ -67,7 +67,7 @@ def main(tui, action, top_dir, main_json, merged_json, main_yaml, saved_yaml, ya
         lib.load()
         crawled = lib.crawl_and_merge(top_dir)
         lib.save()
-        click.echo(f"crawled {len(crawled)}, library now has {len(lib.entries)} entries")
+        click.echo(f"crawled {len(crawled)}, library now has {len(lib.shelf.books)} entries")
 
 
 if __name__ == "__main__":

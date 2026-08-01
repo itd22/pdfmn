@@ -31,7 +31,7 @@ def test_json_policy_load(tmp_path):
     lib = BooksSpine(policy="json", json_path=str(main_json))
     lib.load()
 
-    assert [e.name for e in lib.entries] == ["a"]
+    assert [e.name for e in lib.shelf.books] == ["a"]
 
 
 def test_json_policy_crawl_and_merge_and_save(tmp_path):
@@ -45,7 +45,7 @@ def test_json_policy_crawl_and_merge_and_save(tmp_path):
     lib.crawl_and_merge(str(pdf_dir))
     lib.save()
 
-    assert sorted(e.name for e in lib.entries) == ["a", "b"]
+    assert sorted(e.name for e in lib.shelf.books) == ["a", "b"]
     assert merged_json.exists()
 
     from pdftui.json_bridge import load as json_load
@@ -64,7 +64,7 @@ def test_db_policy_load_creates_db_when_missing(tmp_path, monkeypatch):
     lib.load()
 
     assert db_bridge_module.is_exist() is True
-    assert lib.entries == []
+    assert lib.shelf.books == []
 
 
 def test_db_policy_crawl_and_merge(tmp_path, monkeypatch):
@@ -80,7 +80,7 @@ def test_db_policy_crawl_and_merge(tmp_path, monkeypatch):
     lib.load()
     lib.crawl_and_merge(str(pdf_dir))
 
-    assert sorted(e.name for e in lib.entries) == ["a", "b"]
+    assert sorted(e.name for e in lib.shelf.books) == ["a", "b"]
     assert sorted(e.name for e in db_bridge_module.load_all()) == ["a", "b"]
 
 
@@ -91,7 +91,7 @@ def test_yaml_policy_load(tmp_path):
     lib = BooksSpine(policy="yaml", yaml_path=str(main_yaml))
     lib.load()
 
-    assert [e.name for e in lib.entries] == ["a"]
+    assert [e.name for e in lib.shelf.books] == ["a"]
 
 
 def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
@@ -110,7 +110,7 @@ def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
     lib.crawl_and_merge(str(pdf_dir))
     lib.save()
 
-    assert sorted(e.name for e in lib.entries) == ["a", "b"]
+    assert sorted(e.name for e in lib.shelf.books) == ["a", "b"]
     assert saved_yaml.exists()
 
     from pdftui.yaml_bridge import load as yaml_load

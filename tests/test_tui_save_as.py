@@ -20,7 +20,7 @@ def _entry(name):
 def _session_with_entries(policy, **kwargs):
     session = TuiSession(policy=policy, **kwargs)
     session.lib = session.get_lib()
-    session.lib.entries = [_entry("a"), _entry("b")]
+    session.lib.shelf.books = [_entry("a"), _entry("b")]
     return session
 
 
@@ -58,7 +58,7 @@ def test_save_as_db_works_regardless_of_current_policy(tmp_path, monkeypatch):
 
     session = tui_module.TuiSession(policy="json")
     session.lib = session.get_lib()
-    session.lib.entries = [_entry("a"), _entry("b")]
+    session.lib.shelf.books = [_entry("a"), _entry("b")]
 
     tui_module._action_save_as_db(None, session)
 

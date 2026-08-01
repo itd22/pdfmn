@@ -149,3 +149,37 @@ Note: forkpdfpz's `v0.5.0` also fixed a real bug in its own CLI
 `./files_info.yaml` instead of the loaded file) — that fix is internal
 to forkpdfpz's `cli.py`/`class_books_actions.py` and doesn't touch
 anything `pdftui` calls.
+
+## Unreleased (package branch), continued yet again
+
+**`BooksSpine` reuses `pdfpz::BooksShelf` directly for its data + presentation, instead of keeping its own bare list.**
+
+`BooksSpine` was really two responsibilities glued together — the same
+"list of `PdfManifestEntry` + a way to look at it" role `pdfpz::BooksShelf`
+already had (structurally identical to it before this change: `entries`
+vs `books`, `print_names()` vs `books_generator(predicate)`, same
+underlying data, no I/O in either), plus the json/yaml/db persistence
+dispatch that's genuinely `BooksSpine`-specific (`pdfpz::BooksCollection`
+only handles yaml, so it can't cover this half).
+
+- `BooksSpine.__init__` now builds `self.shelf: BooksShelf` (from
+  `pdfpz.core.class_book_manifest`) instead of `self.entries: List[...]`.
+  `load()`/`crawl_and_merge()`/`save()`/`print_names()` read and write
+  `self.shelf.books` directly.
+- No backward-compatible `entries` property was kept, per instruction —
+  every caller was updated instead: `main.py` (1 site), `tui.py` (7
+  sites), `tests/test_books_lib.py` (6 sites), `tests/test_tui_save_as.py`
+  (2 sites). All mechanical `.entries` -> `.shelf.books` renames, no
+  logic changes.
+- Side benefit: `BooksShelf.books_generator(predicate)` — filtering,
+  previously unused anywhere in `pdftui` — is now directly reachable
+  through `lib.shelf.books_generator(...)`, though nothing calls it yet.
+- Verified end-to-end (both packages editable-installed, not via the
+  test suite): `lib.shelf` is confirmed to actually be a
+  `pdfpz.core.class_book_manifest.BooksShelf` instance (not just
+  duck-typed the same shape), a yaml save/load round trip through
+  `BooksSpine` works, and `books_generator` works when called directly.
+
+`pdfpz::BooksCollection`'s persistence role remains forkpdfpz-only and
+yaml-only — `BooksSpine`'s json/db dispatch logic wasn't touched or
+folded into it; only the data-holding half changed.
