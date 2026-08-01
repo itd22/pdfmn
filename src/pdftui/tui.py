@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from . import db_bridge, json_bridge, yaml_bridge
-from .books_lib import BooksSpine, POLICIES
+from .books_spine import BooksSpine, POLICIES
 
 SETTINGS_FILE = ".pdftui_tui_settings.json"
 

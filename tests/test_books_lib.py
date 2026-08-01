@@ -2,7 +2,7 @@ import importlib
 
 import pytest
 
-from pdftui.books_lib import BooksSpine
+from pdftui.books_spine import BooksSpine
 from pdftui.json_bridge import save as json_save
 from pdfpz.core.class_book_manifest import PdfManifestEntry
 from pdftui.yaml_bridge import save as yaml_save
