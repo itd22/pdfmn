@@ -124,7 +124,15 @@ def _draw_header(win, session: TuiSession, max_x: int) -> None:
 
 
 def _draw_footer(win, session: TuiSession, max_y: int, max_x: int) -> None:
-    win.addnstr(max_y - 1, 0, session.last_message.ljust(max_x)[: max_x - 1], max_x - 1, curses.A_DIM)
+    text = session.last_message.ljust(max_x)[: max_x - 1]
+    try:
+        win.addnstr(max_y - 1, 0, text, max_x - 1, curses.A_DIM)
+    except curses.error:
+        # Writing the window's last line can return ERR on some
+        # terminals even without touching the last column -- curses
+        # still tries to advance the cursor past the edge afterward.
+        # Losing the footer for one frame beats crashing the TUI.
+        pass
 
 
 def _prompt(stdscr, prompt: str, initial: str = "") -> str:
