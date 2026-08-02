@@ -113,8 +113,8 @@ class TuiSession:
     def protected(self):
         """Run an action with stdout redirected away from the terminal.
 
-        Some pdfpz functions (e.g. BooksCollection.save_books_manifest,
-        BooksActions.load_books_manifest) call print() directly. During
+        Some pdfpz functions (e.g. BooksCollection.save_books_collection,
+        BooksCollection.load_books_collection) call print() directly. During
         curses.wrapper's raw-terminal mode, an unbuffered print() writes
         straight into the screen curses is managing and corrupts the TUI's
         rendering. Capturing it here (and discarding it) keeps those calls

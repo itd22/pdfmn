@@ -183,3 +183,34 @@ only handles yaml, so it can't cover this half).
 `pdfpz::BooksCollection`'s persistence role remains forkpdfpz-only and
 yaml-only — `BooksSpine`'s json/db dispatch logic wasn't touched or
 folded into it; only the data-holding half changed.
+
+## Unreleased (package branch), continued once more again
+
+**Bumped `backend` submodule to `v0.6.0`; `yaml_bridge.py` now calls `BooksCollection.load_books_collection()`/`save_books_collection()` directly.**
+
+forkpdfpz moved `BooksCollection` into its own module
+(`class_books_collection.py`), gave it an `assets: Asset` field
+(`AssetsLegacy` by default, YAML-backed), and added
+`load_books_collection()`/`save_books_collection()` methods that persist
+through it — replacing `from_yaml_path`/`save_books_manifest()` and the
+separate `BooksActions.load_books_manifest()` staticmethod this repo
+was calling before.
+
+- `yaml_bridge.load()`: now `BooksCollection.from_legacy_path(path)` +
+  `.load_books_collection()`, reading `.books_manifest.books` off the
+  result, instead of `BooksActions.load_books_manifest(path)`.
+- `yaml_bridge.save()`: now `BooksCollection.from_legacy_path(output_path)`
+  + `.save_books_collection()`, instead of the old
+  `.save_books_manifest()`.
+- `tui.py`'s `protected()` docstring updated — it named the old
+  `BooksCollection.save_books_manifest`/`BooksActions.load_books_manifest`
+  as the pdfpz functions it's guarding against; now names the current
+  `save_books_collection`/`load_books_collection`.
+- The v0.6.0 forkpdfpz code this depends on had real bugs when it
+  landed (wrong `src.pdfpz` import prefix, a `self.asset` typo, save
+  never actually populating the asset's data before writing, and load
+  using the wrong path field) — all fixed upstream as part of getting
+  this working; see forkpdfpz's own changelog/commit for detail.
+- Verified end-to-end (both packages editable-installed, not via the
+  test suite): a `yaml_bridge` save/load round trip works, and
+  `BooksSpine.load()` through the yaml policy works too.
