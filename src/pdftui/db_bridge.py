@@ -48,9 +48,19 @@ def _entry_to_book(entry: PdfManifestEntry) -> BookOrm:
 def _book_to_entry(book: BookOrm) -> PdfManifestEntry:
     entry = PdfManifestEntry.new_empty_manifest_entry()
     for field in (
-        "valid_pdf", "file", "input_file", "title", "author", "size",
-        "optimized", "year", "isbn", "name", "isbn_normalized",
-        "book_id", "book_type",
+        "valid_pdf",
+        "file",
+        "input_file",
+        "title",
+        "author",
+        "size",
+        "optimized",
+        "year",
+        "isbn",
+        "name",
+        "isbn_normalized",
+        "book_id",
+        "book_type",
     ):
         setattr(entry, field, getattr(book, field))
     return entry

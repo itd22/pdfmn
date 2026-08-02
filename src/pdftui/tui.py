@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import contextlib
 import curses
-import io
 import json
 from dataclasses import dataclass, field
+import logging
 from pathlib import Path
 from typing import List, Optional
 
+from pdftui.tui_protect import protected
+
 from . import db_bridge, json_bridge, yaml_bridge
-from .books_spine import BooksSpine, POLICIES
+from .books_spine import POLICIES, BooksSpine
 
 SETTINGS_FILE = ".pdftui_tui_settings.json"
 
@@ -109,20 +110,6 @@ class TuiSession:
     def settings_dict(self) -> dict:
         return {field_name: getattr(self, field_name) for field_name in SETTINGS_FIELDS}
 
-    @contextlib.contextmanager
-    def protected(self):
-        """Run an action with stdout redirected away from the terminal.
-
-        Some pdfpz functions (e.g. BooksCollection.save_books_collection,
-        BooksCollection.load_books_collection) call print() directly. During
-        curses.wrapper's raw-terminal mode, an unbuffered print() writes
-        straight into the screen curses is managing and corrupts the TUI's
-        rendering. Capturing it here (and discarding it) keeps those calls
-        harmless without needing to touch pdfpz itself.
-        """
-        with contextlib.redirect_stdout(io.StringIO()):
-            yield
-
 
 def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> None:
     with open(path, "w", encoding="utf-8") as f:
@@ -201,7 +188,7 @@ def _select_from(stdscr, title: str, items: List[str], start_index: int = 0) -> 
     backed out with 'q'/ESC."""
     idx = start_index
     exceed_screen_max = False
-    scrolled_delta =0
+    scrolled_delta = 0
     scrolled_index = 0
     max_x = 0
     while True:
@@ -217,7 +204,7 @@ def _select_from(stdscr, title: str, items: List[str], start_index: int = 0) -> 
             if scrolled_index > max_y - 4:
                 exceed_screen_max = True
                 break
-            
+
         stdscr.addnstr(max_y - 1, 0, "Up/Down or j/k to move, Enter to select, q to go back", max_x - 1, curses.A_DIM)
         stdscr.refresh()
 
@@ -226,14 +213,14 @@ def _select_from(stdscr, title: str, items: List[str], start_index: int = 0) -> 
             idx = (idx - 1) % len(items)
             if scrolled_delta > 0 and idx - scrolled_delta < 2:
                 scrolled_delta -= 1
-                idx = (idx + 1) % len(items)  
-                
+                idx = (idx + 1) % len(items)
+
         elif key in (curses.KEY_DOWN, ord("j")):
             idx = (idx + 1) % len(items)
-            if exceed_screen_max and idx - scrolled_delta > max_y - 4 :
+            if exceed_screen_max and idx - scrolled_delta > max_y - 4:
                 scrolled_delta += 1
                 exceed_screen_max = False
- 
+
         elif key in (curses.KEY_ENTER, ord("\n"), ord("\r")):
             return idx
         elif key in (ord("q"), 27):  # 27 = ESC
@@ -256,8 +243,7 @@ def _action_crawl_and_merge(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
     crawled = lib.crawl_and_merge(top_dir)
     session.last_message = (
-        f"Crawled {len(crawled)} PDF(s) under '{top_dir}', "
-        f"library now has {len(lib.shelf.books)} entries."
+        f"Crawled {len(crawled)} PDF(s) under '{top_dir}', library now has {len(lib.shelf.books)} entries."
     )
 
 
@@ -312,7 +298,11 @@ def _action_save_as_db(stdscr, session: TuiSession) -> None:
 
 def _action_show_entries(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
-    lines = [f"{e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}" for e in lib.shelf.books if len(e.title)>0]
+    lines = [
+        f"{e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}"
+        for e in lib.shelf.books
+        if len(e.title) > 0
+    ]
     if not lines:
         lines = ["(no entries loaded -- try Load or Crawl & Merge first)"]
     _select_from(stdscr, f"Entries ({len(lib.shelf.books)}) -- q to go back", lines, 0)
@@ -384,7 +374,7 @@ def _main_loop(stdscr, session: TuiSession) -> None:
                 return
             handler = ACTION_HANDLERS[action_key]
             try:
-                with session.protected():
+                with protected():
                     handler(stdscr, session)
             except Exception as exc:  # keep the TUI alive on action errors
                 session.last_message = f"Error: {exc}"
@@ -394,7 +384,7 @@ def run_tui(
     top_dir: str = "",
     main_json: str = "main.json",
     merged_json: str = "merged.json",
-    main_yaml: str = "main.yaml",
+    main_yaml: str = "files_info.yaml",
     saved_yaml: str = "saved.yaml",
     yaml_input_path: str = "",
 ) -> None:

@@ -26,9 +26,19 @@ def test_to_dict_key_mapping():
     assert d["Optimized"] is True
     assert "optimized" not in d
     assert set(d.keys()) == {
-        "valid_pdf", "input_file", "file", "title", "author", "size",
-        "Optimized", "isbn", "name", "year", "isbn_normalized",
-        "book_id", "book_type",
+        "valid_pdf",
+        "input_file",
+        "file",
+        "title",
+        "author",
+        "size",
+        "Optimized",
+        "isbn",
+        "name",
+        "year",
+        "isbn_normalized",
+        "book_id",
+        "book_type",
     }
 
 

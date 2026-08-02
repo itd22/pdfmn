@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
+from pdftui.tui_protect import protected
 from pdfpz.core.class_books_collection import BooksCollection
 from pdfpz.core.class_book_manifest import BooksShelf, PdfManifestEntry
 
@@ -23,8 +24,9 @@ def load(path: str) -> List[PdfManifestEntry]:
     if not is_exist(path):
         return []
 
-    collection = BooksCollection.from_legacy_path(path)
-    collection.load_books_collection()
+    with protected():
+        collection = BooksCollection.from_legacy_path(path)
+        collection.load_books_collection()
     return collection.books_manifest.books if collection.books_manifest else []
 
 
