@@ -49,6 +49,7 @@ def test_json_policy_crawl_and_merge_and_save(tmp_path):
     assert merged_json.exists()
 
     from pdftui.json_bridge import load as json_load
+
     reloaded = json_load(str(merged_json))
     assert sorted(e.name for e in reloaded) == ["a", "b"]
 
@@ -57,6 +58,7 @@ def test_db_policy_load_creates_db_when_missing(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     from pdftui import db_bridge as db_bridge_module
     from pdftui import db_schema as db_schema_module
+
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)
 
@@ -71,6 +73,7 @@ def test_db_policy_crawl_and_merge(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     from pdftui import db_bridge as db_bridge_module
     from pdftui import db_schema as db_schema_module
+
     importlib.reload(db_schema_module)
     importlib.reload(db_bridge_module)
 
@@ -114,6 +117,7 @@ def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
     assert saved_yaml.exists()
 
     from pdftui.yaml_bridge import load as yaml_load
+
     reloaded = yaml_load(str(saved_yaml))
     assert sorted(e.name for e in reloaded) == ["a", "b"]
 

@@ -32,6 +32,7 @@ def test_save_as_json_works_regardless_of_current_policy(tmp_path):
     _action_save_as_json(None, session)
 
     from pdftui.json_bridge import load
+
     assert sorted(e.name for e in load(str(out))) == ["a", "b"]
     assert "independent of current policy" in session.last_message
 
@@ -43,6 +44,7 @@ def test_save_as_yaml_works_regardless_of_current_policy(tmp_path):
     _action_save_as_yaml(None, session)
 
     from pdftui.yaml_bridge import load
+
     assert sorted(e.name for e in load(str(out))) == ["a", "b"]
 
 

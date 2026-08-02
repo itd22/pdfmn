@@ -23,9 +23,7 @@ def test_tui_no_crawl_action_requires_top_dir(tmp_path):
     runner = CliRunner()
     main_json = tmp_path / "main.json"
     main_json.write_text("[]")
-    result = runner.invoke(
-        main, ["--tui=no", "--action", "crawl_to_json", "--main-json", str(main_json)]
-    )
+    result = runner.invoke(main, ["--tui=no", "--action", "crawl_to_json", "--main-json", str(main_json)])
     assert result.exit_code != 0
     assert "--top-dir is required" in result.output
 
@@ -38,9 +36,7 @@ def test_tui_no_load_json_runs_classic_cli(tmp_path):
         '"author": "", "size": 0, "Optimized": false, "isbn": "", "name": "a", '
         '"year": "", "isbn_normalized": "", "book_id": "", "book_type": "pdf"}]'
     )
-    result = runner.invoke(
-        main, ["--tui=no", "--action", "load_json", "--main-json", str(main_json)]
-    )
+    result = runner.invoke(main, ["--tui=no", "--action", "load_json", "--main-json", str(main_json)])
     assert result.exit_code == 0
     assert "a" in result.output.splitlines()
 
@@ -54,6 +50,7 @@ def test_tui_yes_passes_main_json_and_main_yaml_to_run_tui(monkeypatch, tmp_path
         captured.update(kwargs)
 
     import pdftui.tui as tui_module
+
     monkeypatch.setattr(tui_module, "run_tui", fake_run_tui)
 
     runner = CliRunner()
@@ -61,8 +58,10 @@ def test_tui_yes_passes_main_json_and_main_yaml_to_run_tui(monkeypatch, tmp_path
         main,
         [
             "--tui=yes",
-            "--main-json", "custom_main.json",
-            "--main-yaml", "custom_main.yaml",
+            "--main-json",
+            "custom_main.json",
+            "--main-yaml",
+            "custom_main.yaml",
         ],
     )
     assert result.exit_code == 0

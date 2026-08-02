@@ -5,9 +5,7 @@ from typing import List
 from pdfpz.core.class_book_manifest import PdfManifestEntry
 
 
-def merge(
-    main_entries: List[PdfManifestEntry], additional_entries: List[PdfManifestEntry]
-) -> List[PdfManifestEntry]:
+def merge(main_entries: List[PdfManifestEntry], additional_entries: List[PdfManifestEntry]) -> List[PdfManifestEntry]:
     """Return main_entries with only the new-by-name entries from additional_entries appended.
 
     main_entries names are assumed unique. additional_entries may repeat
