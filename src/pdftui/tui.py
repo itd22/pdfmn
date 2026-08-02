@@ -9,7 +9,7 @@ from typing import List, Optional
 
 from pdftui.tui_protect import protected
 
-from . import db_bridge, json_bridge, yaml_bridge
+from pdfpz.bridges import db_bridge, json_bridge, yaml_bridge
 from .books_spine import POLICIES, BooksSpine
 
 SETTINGS_FILE = ".pdftui_tui_settings.json"

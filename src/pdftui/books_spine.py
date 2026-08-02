@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import List
 
-from . import db_bridge
-from . import json_bridge
-from . import yaml_bridge
+from pdfpz.bridges import db_bridge, json_bridge, yaml_bridge
+
 from .crawl import PdfCrawler
 from pdfpz.core.class_book_manifest import BooksShelf, PdfManifestEntry
 from .merge import merge as merge_entries
