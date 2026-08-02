@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-import curses
 import json
-from dataclasses import dataclass, field
-import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
+
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import Button, DataTable, Footer, Header, Input, Label, RichLog, Select, Static
 
 from pdftui.tui_protect import protected
 
@@ -24,19 +28,6 @@ SETTINGS_FIELDS = (
     "saved_yaml",
     "yaml_input_path",
 )
-
-MAIN_MENU = [
-    ("Load", "load"),
-    ("Crawl && Merge", "crawl_and_merge"),
-    ("Save", "save"),
-    ("Save as JSON", "save_as_json"),
-    ("Save as YAML", "save_as_yaml"),
-    ("Save as DB", "save_as_db"),
-    ("Show entries", "show_entries"),
-    ("Settings", "settings"),
-    ("Save settings to file", "save_settings"),
-    ("Quit", "quit"),
-]
 
 
 def load_saved_settings(path: str = SETTINGS_FILE) -> dict:
@@ -117,152 +108,6 @@ def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> Non
         json.dump(session.settings_dict(), f, indent=2, ensure_ascii=False)
 
 
-def _draw_header(win, session: TuiSession, max_x: int) -> None:
-    entry_count = len(session.lib.shelf.books) if session.lib else 0
-    header = f" pdftui TUI | policy={session.policy} | entries in memory: {entry_count} "
-    win.addnstr(0, 0, header.ljust(max_x), max_x, curses.A_REVERSE)
-
-
-def _draw_footer(win, session: TuiSession, max_y: int, max_x: int) -> None:
-    text = session.last_message.ljust(max_x)[: max_x - 1]
-    try:
-        win.addnstr(max_y - 1, 0, text, max_x - 1, curses.A_DIM)
-    except curses.error:
-        # Writing the window's last line can return ERR on some
-        # terminals even without touching the last column -- curses
-        # still tries to advance the cursor past the edge afterward.
-        # Losing the footer for one frame beats crashing the TUI.
-        pass
-
-
-def _prompt(stdscr, prompt: str, initial: str = "") -> str:
-    """Editable text prompt with a real line editor: Backspace/Delete only
-    ever touch the characters the user is editing (never the surrounding
-    window content), so the existing value can be fully replaced -- not
-    just appended to."""
-    max_y, max_x = stdscr.getmaxyx()
-    win = curses.newwin(3, max_x, max_y - 4, 0)
-    win.keypad(True)
-
-    buf = list(initial)
-    cursor = len(buf)
-
-    def redraw():
-        win.erase()
-        win.border()
-        win.addnstr(0, 2, f" {prompt} (Enter=confirm, Esc=cancel) ", max_x - 4)
-        text = "".join(buf)
-        win.addnstr(1, 2, f"> {text}", max_x - 5)
-        win.move(1, min(4 + cursor, max_x - 2))
-        win.refresh()
-
-    curses.curs_set(1)
-    redraw()
-    try:
-        while True:
-            ch = win.getch()
-            if ch in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-                break
-            elif ch == 27:  # ESC -- cancel, keep the original value
-                buf = list(initial)
-                break
-            elif ch in (curses.KEY_BACKSPACE, 127, 8):
-                if cursor > 0:
-                    del buf[cursor - 1]
-                    cursor -= 1
-            elif ch == curses.KEY_DC:  # Delete
-                if cursor < len(buf):
-                    del buf[cursor]
-            elif ch == curses.KEY_LEFT:
-                cursor = max(0, cursor - 1)
-            elif ch == curses.KEY_RIGHT:
-                cursor = min(len(buf), cursor + 1)
-            elif ch == curses.KEY_HOME:
-                cursor = 0
-            elif ch == curses.KEY_END:
-                cursor = len(buf)
-            elif 0 <= ch < 256 and chr(ch).isprintable():
-                buf.insert(cursor, chr(ch))
-                cursor += 1
-            redraw()
-    finally:
-        curses.curs_set(0)
-
-    text = "".join(buf)
-    return text if text else initial
-
-
-def _select_from(stdscr, title: str, items: List[str], start_index: int = 0) -> Optional[int]:
-    """Simple arrow-key menu. Returns selected index, or None if the user
-    backed out with 'q'/ESC."""
-    idx = start_index
-    exceed_screen_max = False
-    scrolled_delta = 0
-    scrolled_index = 0
-    max_x = 0
-    while True:
-        stdscr.erase()
-        max_y, max_x = stdscr.getmaxyx()
-        stdscr.addnstr(0, 0, title, max_x - 1, curses.A_BOLD)
-        for i, item in enumerate(items):
-            scrolled_index = i - scrolled_delta
-            if scrolled_index < 0:
-                continue
-            attr = curses.A_REVERSE if scrolled_index == idx else curses.A_NORMAL
-            stdscr.addnstr(2 + scrolled_index, 2, item, max_x - 3, attr)
-            if scrolled_index > max_y - 4:
-                exceed_screen_max = True
-                break
-
-        stdscr.addnstr(max_y - 1, 0, "Up/Down or j/k to move, Enter to select, q to go back", max_x - 1, curses.A_DIM)
-        stdscr.refresh()
-
-        key = stdscr.getch()
-        if key in (curses.KEY_UP, ord("k")):
-            idx = (idx - 1) % len(items)
-            if scrolled_delta > 0 and idx - scrolled_delta < 2:
-                scrolled_delta -= 1
-                idx = (idx + 1) % len(items)
-
-        elif key in (curses.KEY_DOWN, ord("j")):
-            idx = (idx + 1) % len(items)
-            if exceed_screen_max and idx - scrolled_delta > max_y - 4:
-                scrolled_delta += 1
-                exceed_screen_max = False
-
-        elif key in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-            return idx
-        elif key in (ord("q"), 27):  # 27 = ESC
-            return None
-
-
-def _action_load(stdscr, session: TuiSession) -> None:
-    lib = session.get_lib()
-    lib.load()
-    session.last_message = f"Loaded {len(lib.shelf.books)} entries (policy={session.policy})."
-
-
-def _action_crawl_and_merge(stdscr, session: TuiSession) -> None:
-    top_dir = _prompt(stdscr, "Top directory to crawl", session.top_dir)
-    if not top_dir:
-        session.last_message = "Crawl & Merge cancelled: no top-dir given."
-        return
-    session.top_dir = top_dir
-
-    lib = session.get_lib()
-    crawled = lib.crawl_and_merge(top_dir)
-    session.last_message = (
-        f"Crawled {len(crawled)} PDF(s) under '{top_dir}', library now has {len(lib.shelf.books)} entries."
-    )
-
-
-def _action_save(stdscr, session: TuiSession) -> None:
-    lib = session.get_lib()
-    lib.save()
-    dest = {"json": session.merged_json, "yaml": session.saved_yaml, "db": "books_db.sqlite"}[session.policy]
-    session.last_message = f"Saved {len(lib.shelf.books)} entries (policy={session.policy}) -> {dest}."
-
-
 def _current_entries(session: TuiSession):
     return session.lib.shelf.books if session.lib else []
 
@@ -294,127 +139,321 @@ def _props_checkboxes(entry_name: str) -> str:
     return " ".join("[x]" if getattr(props_act.pdf_props, f) else "[ ]" for f in PROP_FIELDS)
 
 
-def _action_save_as_json(stdscr, session: TuiSession) -> None:
-    entries = _current_entries(session)
-    if not entries:
-        session.last_message = "Nothing to save -- Load or Crawl & Merge first."
-        return
-    json_bridge.save(session.merged_json, entries)
-    session.last_message = (
-        f"Saved {len(entries)} entries as JSON -> {session.merged_json} "
-        f"(independent of current policy={session.policy})."
-    )
+class PdftuiController:
+    """`pdftui`'s business logic, independent of any particular front-end.
 
+    Every method reads/writes the same TuiSession and leaves a status line
+    in session.last_message; on_output (if given) also gets a copy of that
+    line, so the Textual app's log pane and the plain last-message model
+    stay in sync without the controller knowing anything about widgets.
+    """
 
-def _action_save_as_yaml(stdscr, session: TuiSession) -> None:
-    entries = _current_entries(session)
-    if not entries:
-        session.last_message = "Nothing to save -- Load or Crawl & Merge first."
-        return
-    yaml_bridge.save(session.yaml_input_path or session.top_dir, entries, session.saved_yaml)
-    session.last_message = (
-        f"Saved {len(entries)} entries as YAML -> {session.saved_yaml} "
-        f"(independent of current policy={session.policy})."
-    )
+    def __init__(self, session: Optional[TuiSession] = None, on_output=None) -> None:
+        self.session = session or TuiSession()
+        self.on_output = on_output
 
+    def _print(self, line: str) -> None:
+        self.session.last_message = line
+        if self.on_output is not None:
+            self.on_output(line)
 
-def _action_save_as_db(stdscr, session: TuiSession) -> None:
-    entries = _current_entries(session)
-    if not entries:
-        session.last_message = "Nothing to save -- Load or Crawl & Merge first."
-        return
-    if not db_bridge.is_exist():
-        db_bridge.create_db()
-    added = db_bridge.merge_to_db(entries)
-    session.last_message = (
-        f"Merged {len(entries)} entries into books_db.sqlite, {added} new "
-        f"(independent of current policy={session.policy})."
-    )
+    def load(self) -> None:
+        lib = self.session.get_lib()
+        lib.load()
+        self._print(f"Loaded {len(lib.shelf.books)} entries (policy={self.session.policy}).")
 
-
-def _action_show_entries(stdscr, session: TuiSession) -> None:
-    lib = session.get_lib()
-    lines = [
-        f"{_props_checkboxes(e.name)}  {e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}"
-        for e in lib.shelf.books
-        if len(e.title) > 0
-    ]
-    if not lines:
-        lines = ["(no entries loaded -- try Load or Crawl & Merge first)"]
-    header = f"Entries ({len(lib.shelf.books)}) -- [{'/'.join(PROP_FIELDS)}] -- q to go back"
-    _select_from(stdscr, header, lines, 0)
-
-
-def _action_settings(stdscr, session: TuiSession) -> None:
-    while True:
-        fields = session.settings_fields()
-        labels = [f"{label}: {value}" for _key, label, value in fields] + ["Back"]
-        choice = _select_from(stdscr, "Settings -- Enter to edit a field", labels, 0)
-        if choice is None or choice == len(fields):
+    def crawl_and_merge(self, top_dir: str) -> None:
+        if not top_dir:
+            self._print("Crawl & Merge cancelled: no top-dir given.")
             return
+        self.session.top_dir = top_dir
 
-        key, label, value = fields[choice]
-        if key == "policy":
-            new_val = _select_from(stdscr, "Choose policy", list(POLICIES), POLICIES.index(session.policy))
-            if new_val is not None:
-                session.policy = POLICIES[new_val]
-                session.last_message = f"Policy set to '{session.policy}'."
+        lib = self.session.get_lib()
+        crawled = lib.crawl_and_merge(top_dir)
+        self._print(
+            f"Crawled {len(crawled)} PDF(s) under '{top_dir}', library now has {len(lib.shelf.books)} entries."
+        )
+
+    def save(self) -> None:
+        lib = self.session.get_lib()
+        lib.save()
+        dest = {"json": self.session.merged_json, "yaml": self.session.saved_yaml, "db": "books_db.sqlite"}[
+            self.session.policy
+        ]
+        self._print(f"Saved {len(lib.shelf.books)} entries (policy={self.session.policy}) -> {dest}.")
+
+    def save_as_json(self) -> None:
+        entries = _current_entries(self.session)
+        if not entries:
+            self._print("Nothing to save -- Load or Crawl & Merge first.")
+            return
+        json_bridge.save(self.session.merged_json, entries)
+        self._print(
+            f"Saved {len(entries)} entries as JSON -> {self.session.merged_json} "
+            f"(independent of current policy={self.session.policy})."
+        )
+
+    def save_as_yaml(self) -> None:
+        entries = _current_entries(self.session)
+        if not entries:
+            self._print("Nothing to save -- Load or Crawl & Merge first.")
+            return
+        yaml_bridge.save(self.session.yaml_input_path or self.session.top_dir, entries, self.session.saved_yaml)
+        self._print(
+            f"Saved {len(entries)} entries as YAML -> {self.session.saved_yaml} "
+            f"(independent of current policy={self.session.policy})."
+        )
+
+    def save_as_db(self) -> None:
+        entries = _current_entries(self.session)
+        if not entries:
+            self._print("Nothing to save -- Load or Crawl & Merge first.")
+            return
+        if not db_bridge.is_exist():
+            db_bridge.create_db()
+        added = db_bridge.merge_to_db(entries)
+        self._print(
+            f"Merged {len(entries)} entries into books_db.sqlite, {added} new "
+            f"(independent of current policy={self.session.policy})."
+        )
+
+    def save_settings(self) -> None:
+        save_saved_settings(self.session)
+        self._print(f"Settings saved to '{SETTINGS_FILE}' (will auto-load next start).")
+
+    def entries(self) -> list:
+        return _current_entries(self.session)
+
+
+class SettingsScreen(ModalScreen[bool]):
+    """Modal editor for TuiSession's settings fields.
+
+    Dismisses with True if the user saved changes, False/None on cancel --
+    mirrors the old curses "Settings" menu (Enter to edit a field, q/ESC to
+    go back) but as a single form instead of a field-at-a-time prompt loop.
+    """
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    CSS = """
+    SettingsScreen {
+        align: center middle;
+    }
+    #settings-panel {
+        width: 70;
+        height: auto;
+        border: thick $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+    #settings-panel Label {
+        margin-top: 1;
+        color: $text-muted;
+    }
+    #settings-buttons {
+        height: 3;
+        margin-top: 1;
+        align: right middle;
+    }
+    """
+
+    def __init__(self, session: TuiSession) -> None:
+        super().__init__()
+        self.session = session
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="settings-panel"):
+            yield Static("Settings", id="settings-title")
+            for key, label, value in self.session.settings_fields():
+                yield Label(label)
+                if key == "policy":
+                    yield Select([(p, p) for p in POLICIES], value=value, allow_blank=False, id="s-policy")
+                else:
+                    yield Input(value=value, id=f"s-{key}")
+            with Horizontal(id="settings-buttons"):
+                yield Button("Cancel", id="settings-cancel")
+                yield Button("Save", id="settings-save", variant="success")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "settings-save":
+            self.session.policy = self.query_one("#s-policy", Select).value
+            for key, _label, _value in self.session.settings_fields():
+                if key == "policy":
+                    continue
+                setattr(self.session, key, self.query_one(f"#s-{key}", Input).value)
+            self.dismiss(True)
         else:
-            new_val = _prompt(stdscr, label, value)
-            setattr(session, key, new_val)
-            session.last_message = f"{label} set to '{new_val}'."
+            self.dismiss(False)
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
 
 
-def _action_save_settings(stdscr, session: TuiSession) -> None:
-    save_saved_settings(session)
-    session.last_message = f"Settings saved to '{SETTINGS_FILE}' (will auto-load next start)."
+class PdftuiApp(App):
+    """The full-screen, interactive `pdftui` experience, built on Textual."""
 
+    TITLE = "pdftui"
+    SUB_TITLE = "crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)"
 
-ACTION_HANDLERS = {
-    "load": _action_load,
-    "crawl_and_merge": _action_crawl_and_merge,
-    "save": _action_save,
-    "save_as_json": _action_save_as_json,
-    "save_as_yaml": _action_save_as_yaml,
-    "save_as_db": _action_save_as_db,
-    "show_entries": _action_show_entries,
-    "settings": _action_settings,
-    "save_settings": _action_save_settings,
-}
+    CSS = """
+    #controls, #controls2 {
+        height: 3;
+        padding: 0 1;
+    }
+    #policy-select {
+        width: 14;
+        margin-right: 1;
+    }
+    #top-dir-input {
+        width: 1fr;
+        margin-right: 1;
+    }
+    #entries-table {
+        height: 1fr;
+        border: solid $accent;
+    }
+    #output-label {
+        height: 1;
+        padding-left: 1;
+        color: $text-muted;
+    }
+    #output-log {
+        height: 10;
+        border: solid $accent;
+    }
+    """
 
+    BINDINGS = [
+        Binding("l", "do_load", "Load"),
+        Binding("c", "focus_crawl", "Crawl"),
+        Binding("s", "do_save", "Save"),
+        Binding("r", "refresh_table", "Refresh"),
+        Binding("q", "quit", "Quit"),
+    ]
 
-def _main_loop(stdscr, session: TuiSession) -> None:
-    curses.curs_set(0)
-    idx = 0
-    labels = [label for label, _key in MAIN_MENU]
+    def __init__(self, session: Optional[TuiSession] = None) -> None:
+        super().__init__()
+        self.controller = PdftuiController(session=session, on_output=self._log)
 
-    while True:
-        stdscr.erase()
-        max_y, max_x = stdscr.getmaxyx()
-        _draw_header(stdscr, session, max_x)
-        for i, label in enumerate(labels):
-            attr = curses.A_REVERSE if i == idx else curses.A_NORMAL
-            stdscr.addnstr(2 + i, 2, label, max_x - 3, attr)
-        _draw_footer(stdscr, session, max_y, max_x)
-        stdscr.refresh()
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Vertical(id="root"):
+            with Horizontal(id="controls"):
+                yield Select(
+                    [(p, p) for p in POLICIES], value=self.controller.session.policy, allow_blank=False, id="policy-select"
+                )
+                yield Input(
+                    placeholder="top directory to crawl", value=self.controller.session.top_dir, id="top-dir-input"
+                )
+                yield Button("Load", id="load-btn", variant="primary")
+                yield Button("Crawl && Merge", id="crawl-btn", variant="primary")
+                yield Button("Save", id="save-btn", variant="success")
+            with Horizontal(id="controls2"):
+                yield Button("Save as JSON", id="save-json-btn")
+                yield Button("Save as YAML", id="save-yaml-btn")
+                yield Button("Save as DB", id="save-db-btn")
+                yield Button("Settings", id="settings-btn")
+                yield Button("Save settings", id="save-settings-btn")
+            yield DataTable(id="entries-table")
+            yield Static("Output", id="output-label")
+            yield RichLog(id="output-log", wrap=True, markup=True, max_lines=2000)
+        yield Footer()
 
-        key = stdscr.getch()
-        if key in (curses.KEY_UP, ord("k")):
-            idx = (idx - 1) % len(labels)
-        elif key in (curses.KEY_DOWN, ord("j")):
-            idx = (idx + 1) % len(labels)
-        elif key in (ord("q"), 27):
+    def on_mount(self) -> None:
+        table = self.query_one("#entries-table", DataTable)
+        table.cursor_type = "row"
+        table.add_columns("Name", "Title", "Author", f"Props [{'/'.join(PROP_FIELDS)}]")
+        if self.controller.session.last_message:
+            self._log(self.controller.session.last_message)
+        self._refresh_table()
+
+    # --- entries table ---
+
+    def _refresh_table(self) -> None:
+        table = self.query_one("#entries-table", DataTable)
+        table.clear()
+        entries = self.controller.entries()
+        shown = 0
+        # Same filter as the old curses "Show entries" screen: only entries
+        # with a title are listed (crawled-but-unscanned entries are noise).
+        for e in entries:
+            if not e.title:
+                continue
+            table.add_row(e.name[:30], e.title[:40] or "(no title)", e.author[:40], _props_checkboxes(e.name), key=e.name)
+            shown += 1
+        self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {len(entries)} (shown: {shown})"
+
+    # --- logging ---
+
+    def _log(self, line: str) -> None:
+        self.query_one("#output-log", RichLog).write(line)
+
+    def _run_action(self, fn, *args) -> None:
+        """Run a controller action, keeping the app alive on error -- same
+        contract the old curses main loop had around each menu handler.
+        Wrapped in `protected()`: pdfpz still logs/prints directly in a few
+        places, and an unbuffered write straight to the terminal can corrupt
+        a running Textual app's rendering just like it could curses'."""
+        try:
+            with protected():
+                fn(*args)
+        except Exception as exc:  # keep the TUI alive on action errors
+            self.controller.session.last_message = f"Error: {exc}"
+            self._log(f"[bold red]Error: {exc}[/bold red]")
+        self._refresh_table()
+
+    def action_do_load(self) -> None:
+        self._run_action(self.controller.load)
+
+    def action_do_save(self) -> None:
+        self._run_action(self.controller.save)
+
+    def action_focus_crawl(self) -> None:
+        self.query_one("#top-dir-input", Input).focus()
+
+    def action_refresh_table(self) -> None:
+        self._refresh_table()
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "policy-select":
+            self.controller.session.policy = event.value
+            self._log(f"Policy set to '{event.value}'.")
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "top-dir-input":
+            self.controller.session.top_dir = event.value
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "top-dir-input":
+            self.query_one("#crawl-btn", Button).press()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+        if button_id == "load-btn":
+            self.action_do_load()
+        elif button_id == "crawl-btn":
+            top_dir = self.query_one("#top-dir-input", Input).value.strip()
+            self._run_action(self.controller.crawl_and_merge, top_dir)
+        elif button_id == "save-btn":
+            self.action_do_save()
+        elif button_id == "save-json-btn":
+            self._run_action(self.controller.save_as_json)
+        elif button_id == "save-yaml-btn":
+            self._run_action(self.controller.save_as_yaml)
+        elif button_id == "save-db-btn":
+            self._run_action(self.controller.save_as_db)
+        elif button_id == "settings-btn":
+            self.push_screen(SettingsScreen(self.controller.session), self._on_settings_closed)
+        elif button_id == "save-settings-btn":
+            self._run_action(self.controller.save_settings)
+
+    def _on_settings_closed(self, saved: Optional[bool]) -> None:
+        if not saved:
             return
-        elif key in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-            _, action_key = MAIN_MENU[idx]
-            if action_key == "quit":
-                return
-            handler = ACTION_HANDLERS[action_key]
-            try:
-                with protected():
-                    handler(stdscr, session)
-            except Exception as exc:  # keep the TUI alive on action errors
-                session.last_message = f"Error: {exc}"
+        self.query_one("#policy-select", Select).value = self.controller.session.policy
+        self.query_one("#top-dir-input", Input).value = self.controller.session.top_dir
+        self._log(f"Settings updated (policy={self.controller.session.policy}).")
+        self._refresh_table()
 
 
 def run_tui(
@@ -443,4 +482,10 @@ def run_tui(
             session.top_dir = top_dir
         session.last_message = f"Loaded settings from '{SETTINGS_FILE}'."
 
-    curses.wrapper(_main_loop, session)
+    PdftuiApp(session=session).run()
+
+
+# Lets this file double as a standalone script (`python3 -m pdftui.tui`) in
+# addition to its normal entry point (pyproject.toml: pdftui = "pdftui.main:main").
+if __name__ == "__main__":
+    run_tui()
