@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import curses
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import logging
 from pathlib import Path
 from typing import List, Optional
 
