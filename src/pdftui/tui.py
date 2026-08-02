@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from pdftui.tui_protect import protected
 
+from pdfpz.actions.class_actions_book_props import BookPropsActions
 from pdfpz.bridges import db_bridge, json_bridge, yaml_bridge
 from .books_spine import POLICIES, BooksSpine
 
@@ -258,6 +259,33 @@ def _current_entries(session: TuiSession):
     return session.lib.shelf.books if session.lib else []
 
 
+# Same field order as pdfpz.core.class_book_manifest.PdfProps /
+# pdfpz.bridges.db_schema.BookPropsOrm's per-stage columns.
+PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "sphostscript")
+
+
+def _props_checkboxes(entry_name: str) -> str:
+    """Return a "[x][ ]..." checkbox string for entry_name's PdfProps.
+
+    Looked up by the book's row id in the books table (BookPropsActions.
+    set_id()), which is the same id books_props uses as its own primary
+    key -- so a book with no matching row (not saved to the DB yet, or the
+    DB doesn't exist at all) just renders every box unchecked rather than
+    erroring.
+    """
+    if not db_bridge.is_exist():
+        return " ".join("[ ]" for _ in PROP_FIELDS)
+
+    props_act = BookPropsActions()
+    props_act.set_name(entry_name)
+    props_act.set_id()
+    props_act.set_props_from_db()
+
+    if props_act.pdf_props is None:
+        return " ".join("[ ]" for _ in PROP_FIELDS)
+    return " ".join("[x]" if getattr(props_act.pdf_props, f) else "[ ]" for f in PROP_FIELDS)
+
+
 def _action_save_as_json(stdscr, session: TuiSession) -> None:
     entries = _current_entries(session)
     if not entries:
@@ -299,13 +327,14 @@ def _action_save_as_db(stdscr, session: TuiSession) -> None:
 def _action_show_entries(stdscr, session: TuiSession) -> None:
     lib = session.get_lib()
     lines = [
-        f"{e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}"
+        f"{_props_checkboxes(e.name)}  {e.name[0:20]}  |  {e.title[0:30] or '(no title)'}  |  {e.author[0:40]}"
         for e in lib.shelf.books
         if len(e.title) > 0
     ]
     if not lines:
         lines = ["(no entries loaded -- try Load or Crawl & Merge first)"]
-    _select_from(stdscr, f"Entries ({len(lib.shelf.books)}) -- q to go back", lines, 0)
+    header = f"Entries ({len(lib.shelf.books)}) -- [{'/'.join(PROP_FIELDS)}] -- q to go back"
+    _select_from(stdscr, header, lines, 0)
 
 
 def _action_settings(stdscr, session: TuiSession) -> None:
