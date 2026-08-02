@@ -56,10 +56,6 @@ class BooksSpine:
             self.shelf.books = db_bridge.load_all()
         return self.shelf.books
 
-    def print_names(self) -> None:
-        for entry in self.shelf.books:
-            print(entry.name)
-
     def crawl_and_merge(self, top_dir: str) -> List[PdfManifestEntry]:
         crawler = PdfCrawler(top_dir)
         crawled_entries = crawler.crawl()

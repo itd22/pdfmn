@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import curses
+import io
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -106,6 +108,20 @@ class TuiSession:
 
     def settings_dict(self) -> dict:
         return {field_name: getattr(self, field_name) for field_name in SETTINGS_FIELDS}
+
+    @contextlib.contextmanager
+    def protected(self):
+        """Run an action with stdout redirected away from the terminal.
+
+        Some pdfpz functions (e.g. BooksCollection.save_books_collection,
+        BooksCollection.load_books_collection) call print() directly. During
+        curses.wrapper's raw-terminal mode, an unbuffered print() writes
+        straight into the screen curses is managing and corrupts the TUI's
+        rendering. Capturing it here (and discarding it) keeps those calls
+        harmless without needing to touch pdfpz itself.
+        """
+        with contextlib.redirect_stdout(io.StringIO()):
+            yield
 
 
 def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> None:
@@ -368,7 +384,8 @@ def _main_loop(stdscr, session: TuiSession) -> None:
                 return
             handler = ACTION_HANDLERS[action_key]
             try:
-                handler(stdscr, session)
+                with session.protected():
+                    handler(stdscr, session)
             except Exception as exc:  # keep the TUI alive on action errors
                 session.last_message = f"Error: {exc}"
 
