@@ -8,9 +8,9 @@ version = "0.1.0"
 description = "Crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)."
 requires-python = ">=3.9"
 dependencies = [
-    "click>=8.0",
-    "PyYAML>=6.0",
-    "textual>=0.60",
+    "click>=8.4.2",
+    "PyYAML>=6.0.3",
+    "textual>=8.2.8",
 ]
 # backend (pdfpz) is a git submodule pinned to v0.6.0, not a package-index dep: `pip install -e ./backend -e .` (see run_app.sh).
 # SQLAlchemy now lives with pdfpz (src/pdfpz/bridges/db_bridge.py, db_schema.py).
