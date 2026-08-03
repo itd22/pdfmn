@@ -10,10 +10,12 @@ requires-python = ">=3.9"
 dependencies = [
     "click>=8.0",
     "PyYAML>=6.0",
-    "windows-curses>=2.3; sys_platform == 'win32'",
+    "textual>=0.60",
 ]
 # backend (pdfpz) is a git submodule pinned to v0.6.0, not a package-index dep: `pip install -e ./backend -e .` (see run_app.sh).
 # SQLAlchemy now lives with pdfpz (src/pdfpz/bridges/db_bridge.py, db_schema.py).
+# TUI is Textual-based (src/pdftui/tui.py) as of package73 -- no more curses,
+# so windows-curses is no longer a dependency.
 
 [project.scripts]
 pdftui = "pdftui.main:main"
