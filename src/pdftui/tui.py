@@ -13,7 +13,7 @@ from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Ric
 
 from pdftui.tui_protect import protected
 
-from pdfpz.actions.class_actions_book_props import BookPropsActions
+from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsAction
 from pdfpz.bridges import db_bridge, json_bridge, yaml_bridge
 from .books_spine import POLICIES, BooksSpine
 
@@ -221,6 +221,21 @@ class PdftuiController:
         save_saved_settings(self.session)
         self._print(f"Settings saved to '{SETTINGS_FILE}' (will auto-load next start).")
 
+    def update_props_from_filesystem(self) -> None:
+        """For every entry currently in the list, refresh its filesystem-derived
+        props flags and write them to books_props (BookPropsActions.
+        set_props_from_filesystem_and_update_db(), driven per-entry by
+        BooksPropsAction.update_all_props())."""
+        entries = _current_entries(self.session)
+        if not entries:
+            self._print("Nothing to update -- Load or Crawl & Merge first.")
+            return
+        if not db_bridge.is_exist():
+            self._print("Nothing to update -- entries must be saved as DB first.")
+            return
+        BooksPropsAction(self.session.get_lib().shelf).update_all_props()
+        self._print(f"Updated props from filesystem for {len(entries)} entries.")
+
     def entries(self) -> list:
         return _current_entries(self.session)
 
@@ -352,6 +367,7 @@ class PdftuiApp(App):
                 yield Button("Save as JSON", id="save-json-btn")
                 yield Button("Save as YAML", id="save-yaml-btn")
                 yield Button("Save as DB", id="save-db-btn")
+                yield Button("Update Props", id="update-props-btn")
                 yield Button("Settings", id="settings-btn")
                 yield Button("Save settings", id="save-settings-btn")
             yield DataTable(id="entries-table")
@@ -442,6 +458,8 @@ class PdftuiApp(App):
             self._run_action(self.controller.save_as_yaml)
         elif button_id == "save-db-btn":
             self._run_action(self.controller.save_as_db)
+        elif button_id == "update-props-btn":
+            self._run_action(self.controller.update_props_from_filesystem)
         elif button_id == "settings-btn":
             self.push_screen(SettingsScreen(self.controller.session), self._on_settings_closed)
         elif button_id == "save-settings-btn":
