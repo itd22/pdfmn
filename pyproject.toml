@@ -8,14 +8,28 @@ version = "0.1.0"
 description = "Crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)."
 requires-python = ">=3.9"
 dependencies = [
-    "click>=8.0",
-    "PyYAML>=6.0",
-    "textual>=0.60",
+    "certifi>=2026.7.22",
+    "charset-normalizer>=3.4.9",
+    "click>=8.4.2",
+    "idna>=3.18",
+    "lxml>=6.1.1",
+    "packaging>=26.2",
+    "pikepdf>=10.11.0",
+    "pillow>=12.3.0",
+    "pymupdf>=1.28.0",
+    "PyYAML>=6.0.3",
+    "requests>=2.34.2",
+    "SQLAlchemy>=2.0.51",
+    "textual>=8.2.8",
+    "urllib3>=2.7.0",
 ]
-# backend (pdfpz) is a git submodule pinned to v0.6.0, not a package-index dep: `pip install -e ./backend -e .` (see run_app.sh).
-# SQLAlchemy now lives with pdfpz (src/pdfpz/bridges/db_bridge.py, db_schema.py).
-# TUI is Textual-based (src/pdftui/tui.py) as of package73 -- no more curses,
-# so windows-curses is no longer a dependency.
+# backend (pdfpz) is still a git submodule pinned by commit, not a
+# package-index dep for pdfpz itself: `pip install -e ./backend -e .`
+# (see run_app.sh). The list above mirrors pdfpz's own dependencies
+# (backend/pyproject.toml) so `pip install .` alone -- without the
+# submodule editable install -- still pulls in everything pdftui's
+# `import pdfpz...` calls need at runtime. Keep the two lists in sync
+# whenever backend/pyproject.toml's dependencies change.
 
 [project.scripts]
 pdftui = "pdftui.main:main"
