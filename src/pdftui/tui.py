@@ -16,13 +16,12 @@ from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Ric
 
 from pdftui.tui_protect import protected
 
-from .books_spine import POLICIES, BooksSpine
-
 SETTINGS_FILE = ".pdftui_tui_settings.json"
 
 SETTINGS_FIELDS = (
     "policy",
     "top_dir",
+    "main_db",
     "main_json",
     "merged_json",
     "main_yaml",
@@ -58,41 +57,30 @@ class TuiSession:
     policy: str = "json"
     top_dir: str = ""
     main_json: str = "main.json"
+    main_db: str = "books_db.db"
     merged_json: str = "merged.json"
     main_yaml: str = "main.yaml"
     saved_yaml: str = "saved.yaml"
     yaml_input_path: str = ""
-    lib: Optional[BooksSpine] = None
+    collection: Optional[BooksCollection] = None
     last_message: str = "Welcome. Pick an action."
 
-    def get_lib(self) -> BooksSpine:
-        """Return the BooksSpine for the current policy, building it (with
+    def get_collection(self) -> BooksCollection:
+        """building collection it (with
         the current paths) only if it doesn't exist yet or the policy
-        changed -- never as a side effect of running an action, so the
-        in-memory entries survive repeated Load / Crawl & Merge / Save
-        calls."""
-        if self.lib is None or self.lib.policy != self.policy:
-            self.lib = BooksSpine(
-                policy=self.policy,
-                json_path=self.main_json,
-                merged_json_path=self.merged_json,
-                yaml_path=self.main_yaml,
-                saved_yaml_path=self.saved_yaml,
-                yaml_input_path=self.yaml_input_path or self.top_dir,
-            )
-        else:
-            # keep paths in sync in case Settings changed them since load
-            self.lib.json_path = self.main_json
-            self.lib.merged_json_path = self.merged_json
-            self.lib.yaml_path = self.main_yaml
-            self.lib.saved_yaml_path = self.saved_yaml
-            self.lib.yaml_input_path = self.yaml_input_path or self.top_dir
-        return self.lib
+        changed."""
+
+        policy_persistence_map = {"json": self.main_json, "yaml": self.main_yaml, "db": self.main_db}
+        persistence_filename = policy_persistence_map.get(self.policy, "")
+        if self.collection is None or self.collection.policy != self.policy:
+            self.collection = BooksCollection.from_persistence_file_path(persistence_filename)
+        return self.collection
 
     def settings_fields(self) -> List[tuple]:
         return [
             ("policy", "Policy (json/yaml/db)", self.policy),
             ("top_dir", "Top dir to crawl", self.top_dir),
+            ("main_db", "main.db path (db policy load source)", self.main_db),
             ("main_json", "main.json path (json policy load source)", self.main_json),
             ("merged_json", "merged.json output path (json policy save dest)", self.merged_json),
             ("main_yaml", "main.yaml path (yaml policy load source)", self.main_yaml),
@@ -110,7 +98,7 @@ def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> Non
 
 
 def _current_entries(session: TuiSession):
-    return session.lib.shelf.books if session.lib else []
+    return session.collection.shelf.books if session.collection else []
 
 
 # Same field order as pdfpz.core.class_book_manifest.PdfProps /
@@ -159,9 +147,8 @@ class PdftuiController:
             self.on_output(line)
 
     def load(self) -> None:
-        lib = self.session.get_lib()
-        lib.load()
-        self._print(f"Loaded {len(lib.shelf.books)} entries (policy={self.session.policy}).")
+        lib: BooksCollection = self.session.get_collection()
+        self._print(f"Loaded {len(lib.assets.assets)} entries (policy={self.session.policy}).")
 
     def crawl_and_merge(self, top_dir: str) -> None:
         if not top_dir:
@@ -169,59 +156,26 @@ class PdftuiController:
             return
         self.session.top_dir = top_dir
 
-        lib = self.session.get_lib()
+        lib = self.session.get_collection()
         crawled = lib.crawl_and_merge(top_dir)
         self._print(f"Crawled {len(crawled)} PDF(s) under '{top_dir}', library now has {len(lib.shelf.books)} entries.")
 
     def save(self) -> None:
-        lib = self.session.get_lib()
-        lib.save()
-        dest = {"json": self.session.merged_json, "yaml": self.session.saved_yaml, "db": "books_db.sqlite"}[
-            self.session.policy
-        ]
-        self._print(f"Saved {len(lib.shelf.books)} entries (policy={self.session.policy}) -> {dest}.")
+        lib: BooksCollection = self.session.get_collection()
+        lib.save_books_collection()
+        self._print(f"Saved {len(lib.assets.assets)} entries ")
 
     def save_as_json(self) -> None:
-        entries = _current_entries(self.session)
-        if not entries:
-            self._print("Nothing to save -- Load or Crawl & Merge first.")
-            return
-        json_bridge.save(self.session.merged_json, entries)
-        self._print(
-            f"Saved {len(entries)} entries as JSON -> {self.session.merged_json} "
-            f"(independent of current policy={self.session.policy})."
-        )
+        lib: BooksCollection = self.session.get_collection()
+        lib.export_format("yaml")
 
     def save_as_yaml(self) -> None:
-        self._print("set entries")
- 
-        entries = _current_entries(self.session.main_json)
-        self._print(f"there are {len(entries)} to save")
- 
-        if not entries:
-            self._print("Nothing to save -- Load or Crawl & Merge first.")
-            return
-        self._print("creating collection from entries")
-        collection = BooksCollection.from_entries(entries)
-        self._print("created collection from entries")
-        collection.save_books_collection()
-        self._print(
-            f"Saved {len(entries)} entries as YAML -> {self.session.saved_yaml} "
-            f"(independent of current policy={self.session.policy})."
-        )
+        lib: BooksCollection = self.session.get_collection()
+        lib.export_format("yaml")
 
     def save_as_db(self) -> None:
-        entries = _current_entries(self.session)
-        if not entries:
-            self._print("Nothing to save -- Load or Crawl & Merge first.")
-            return
-        if not db_bridge.is_exist():
-            db_bridge.create_db()
-        added = db_bridge.merge_to_db(entries)
-        self._print(
-            f"Merged {len(entries)} entries into books_db.sqlite, {added} new "
-            f"(independent of current policy={self.session.policy})."
-        )
+        lib: BooksCollection = self.session.get_collection()
+        lib.export_format("db")
 
     def save_settings(self) -> None:
         save_saved_settings(self.session)
@@ -239,7 +193,7 @@ class PdftuiController:
         if not db_bridge.is_exist():
             self._print("Nothing to update -- entries must be saved as DB first.")
             return
-        BooksPropsAction(self.session.get_lib().shelf).update_all_props()
+        BooksPropsAction(self.session.get_collection().shelf).update_all_props()
         self._print(f"Updated props from filesystem for {len(entries)} entries.")
 
     def entries(self) -> list:

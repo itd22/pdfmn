@@ -6,7 +6,7 @@ from pdfpz.bridges import db_bridge, json_bridge
 from pdfpz.core.class_book_manifest import BooksShelf, PdfManifestEntry
 from pdfpz.core.class_books_collection import BooksCollection
 
-POLICIES = ("json", "yaml", "db")
+from pdfpz.core.class_books_collection import POLICIES
 
 
 class BooksSpine:
