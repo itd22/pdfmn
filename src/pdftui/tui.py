@@ -14,7 +14,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Footer, Header, Input, Label, RichLog, Select, Static
+from textual.widgets import Button, Checkbox, DataTable, Footer, Header, Input, Label, RichLog, Select, Static
 
 from pdftui.tui_protect import protected
 
@@ -66,6 +66,7 @@ class TuiSession:
     yaml_input_path: str = ""
     collection: Optional[BooksCollection] = None
     last_message: str = "Welcome. Pick an action."
+    show_spines_only: bool = True
 
     def get_collection(self) -> BooksCollection:
         """building collection it (with
@@ -202,6 +203,21 @@ class PdftuiController:
     def entries(self) -> list:
         return _current_entries(self.session)
 
+    def visible_entries(self) -> list:
+        """Return BooksCollection.assets' spines (the filtered view -- e.g.
+        title-or-author-not-null for the db policy) when show_spines_only
+        is on, otherwise every entry from get_entries(). Falls back to
+        get_entries() if spines were never populated (yaml/json policies
+        don't build spines yet)."""
+        collection = self.session.collection
+        if collection is None:
+            return []
+        if self.session.show_spines_only:
+            spines = collection.assets.get_spines()
+            if spines is not None:
+                return spines
+        return collection.assets.get_entries() or []
+
 
 class SettingsScreen(ModalScreen[bool]):
     """Modal editor for TuiSession's settings fields.
@@ -286,6 +302,10 @@ class PdftuiApp(App):
         width: 1fr;
         margin-right: 1;
     }
+    #spines-checkbox {
+        margin-left: 1;
+        width: auto;
+    }
     #entries-table {
         height: 1fr;
         border: solid $accent;
@@ -329,6 +349,9 @@ class PdftuiApp(App):
                 yield Button("Load", id="load-btn", variant="primary")
                 yield Button("Crawl && Merge", id="crawl-btn", variant="primary")
                 yield Button("Save", id="save-btn", variant="success")
+                yield Checkbox(
+                    "Spines only (title/author)", value=self.controller.session.show_spines_only, id="spines-checkbox"
+                )
             with Horizontal(id="controls2"):
                 yield Button("Save as JSON", id="save-json-btn")
                 yield Button("Save as YAML", id="save-yaml-btn")
@@ -354,18 +377,13 @@ class PdftuiApp(App):
     def _refresh_table(self) -> None:
         table = self.query_one("#entries-table", DataTable)
         table.clear()
-        entries = self.controller.entries()
-        shown = 0
-        # Same filter as the old curses "Show entries" screen: only entries
-        # with a title are listed (crawled-but-unscanned entries are noise).
+        entries = self.controller.visible_entries()
         for e in entries:
-            if not e.title:
-                continue
             table.add_row(
                 e.name[:30], e.title[:40] or "(no title)", e.author[:40], _props_checkboxes(e.name), key=e.name
             )
-            shown += 1
-        self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {len(entries)} (shown: {shown})"
+        total = len(self.controller.entries())
+        self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {total} (shown: {len(entries)})"
 
     # --- logging ---
 
@@ -402,6 +420,11 @@ class PdftuiApp(App):
         if event.select.id == "policy-select":
             self.controller.session.policy = event.value
             self._log(f"Policy set to '{event.value}'.")
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if event.checkbox.id == "spines-checkbox":
+            self.controller.session.show_spines_only = event.value
+            self._refresh_table()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "top-dir-input":
