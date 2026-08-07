@@ -8,11 +8,13 @@ from typing import List, Optional
 from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsAction
 from pdfpz.bridges import db_bridge, json_bridge
 from pdfpz.core.class_books_collection import BooksCollection
+from pdfpz.core.class_book_manifest import POLICIES
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Footer, Header, Input, Label, RichLog, Select, Static
+from textual.widgets import Button, Checkbox, DataTable, Footer, Header, Input, Label, RichLog, Select, Static
 
 from pdftui.tui_protect import protected
 
@@ -64,6 +66,7 @@ class TuiSession:
     yaml_input_path: str = ""
     collection: Optional[BooksCollection] = None
     last_message: str = "Welcome. Pick an action."
+    show_spines_only: bool = True
 
     def get_collection(self) -> BooksCollection:
         """building collection it (with
@@ -74,6 +77,7 @@ class TuiSession:
         persistence_filename = policy_persistence_map.get(self.policy, "")
         if self.collection is None or self.collection.policy != self.policy:
             self.collection = BooksCollection.from_persistence_file_path(persistence_filename)
+            self.collection.load_books_collection()
         return self.collection
 
     def settings_fields(self) -> List[tuple]:
@@ -98,7 +102,7 @@ def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> Non
 
 
 def _current_entries(session: TuiSession):
-    return session.collection.shelf.books if session.collection else []
+    return session.collection.assets.get_entries() if session.collection else []
 
 
 # Same field order as pdfpz.core.class_book_manifest.PdfProps /
@@ -148,7 +152,7 @@ class PdftuiController:
 
     def load(self) -> None:
         lib: BooksCollection = self.session.get_collection()
-        self._print(f"Loaded {len(lib.assets.assets)} entries (policy={self.session.policy}).")
+        self._print(f"Loaded {len(lib.assets.get_entries())} entries (policy={self.session.policy}).")
 
     def crawl_and_merge(self, top_dir: str) -> None:
         if not top_dir:
@@ -193,11 +197,27 @@ class PdftuiController:
         if not db_bridge.is_exist():
             self._print("Nothing to update -- entries must be saved as DB first.")
             return
-        BooksPropsAction(self.session.get_collection().shelf).update_all_props()
+        BooksPropsAction(self.session.get_collection()).update_all_props()
         self._print(f"Updated props from filesystem for {len(entries)} entries.")
 
     def entries(self) -> list:
         return _current_entries(self.session)
+
+    def visible_entries(self) -> list:
+        """Return BooksCollection.assets' spines (the filtered view -- e.g.
+        title-or-author-not-null for the db policy) when show_spines_only
+        is on, otherwise every entry from get_entries(). Falls back to
+        get_entries() if spines were never populated (yaml/json policies
+        don't build spines yet)."""
+        collection = self.session.collection
+        if collection is None:
+            return []
+        if self.session.show_spines_only:
+            spines = collection.assets.get_spines()
+            if spines:
+                self._print(f"spines len = {len(spines)}")
+                return spines
+        return collection.assets.get_entries() or []
 
 
 class SettingsScreen(ModalScreen[bool]):
@@ -283,6 +303,10 @@ class PdftuiApp(App):
         width: 1fr;
         margin-right: 1;
     }
+    #spines-checkbox {
+        margin-left: 1;
+        width: auto;
+    }
     #entries-table {
         height: 1fr;
         border: solid $accent;
@@ -326,6 +350,9 @@ class PdftuiApp(App):
                 yield Button("Load", id="load-btn", variant="primary")
                 yield Button("Crawl && Merge", id="crawl-btn", variant="primary")
                 yield Button("Save", id="save-btn", variant="success")
+                yield Checkbox(
+                    "Spines only (title/author)", value=self.controller.session.show_spines_only, id="spines-checkbox"
+                )
             with Horizontal(id="controls2"):
                 yield Button("Save as JSON", id="save-json-btn")
                 yield Button("Save as YAML", id="save-yaml-btn")
@@ -351,18 +378,14 @@ class PdftuiApp(App):
     def _refresh_table(self) -> None:
         table = self.query_one("#entries-table", DataTable)
         table.clear()
-        entries = self.controller.entries()
-        shown = 0
-        # Same filter as the old curses "Show entries" screen: only entries
-        # with a title are listed (crawled-but-unscanned entries are noise).
+        entries = self.controller.visible_entries()
         for e in entries:
-            if not e.title:
-                continue
+            # pythonic fallback on string with len or None
             table.add_row(
-                e.name[:30], e.title[:40] or "(no title)", e.author[:40], _props_checkboxes(e.name), key=e.name
+                e.name[:30], (e.title or '')[:40], (e.author or '')[:40], _props_checkboxes(e.name), key=e.name
             )
-            shown += 1
-        self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {len(entries)} (shown: {shown})"
+        total = len(self.controller.entries())
+        self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {total} (shown: {len(entries)})"
 
     # --- logging ---
 
@@ -399,6 +422,11 @@ class PdftuiApp(App):
         if event.select.id == "policy-select":
             self.controller.session.policy = event.value
             self._log(f"Policy set to '{event.value}'.")
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if event.checkbox.id == "spines-checkbox":
+            self.controller.session.show_spines_only = event.value
+            self._refresh_table()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "top-dir-input":
