@@ -4,8 +4,23 @@ import pytest
 
 from pdftui.books_spine import BooksSpine
 from pdftui.json_bridge import save as json_save
-from pdfpz.core.class_book_manifest import PdfManifestEntry
-from pdftui.yaml_bridge import save as yaml_save
+from pdfpz.core.class_book_manifest import BooksShelf, PdfManifestEntry
+from pdfpz.core.class_books_collection import BooksCollection
+
+
+def yaml_save(input_path, entries, output_path):
+    """yaml_bridge.py was deleted -- BooksCollection/AssetsLegacy is the
+    yaml persistence path now."""
+    collection = BooksCollection.from_legacy_path(output_path)
+    collection.assets.input_path = input_path
+    collection.books_manifest = BooksShelf(books=list(entries))
+    collection.save_books_collection()
+
+
+def yaml_load(path):
+    collection = BooksCollection.from_legacy_path(path)
+    collection.load_books_collection()
+    return collection.books_manifest.books
 
 
 def _entry(name, **overrides):
@@ -115,8 +130,6 @@ def test_yaml_policy_crawl_and_merge_and_save(tmp_path):
 
     assert sorted(e.name for e in lib.shelf.books) == ["a", "b"]
     assert saved_yaml.exists()
-
-    from pdftui.yaml_bridge import load as yaml_load
 
     reloaded = yaml_load(str(saved_yaml))
     assert sorted(e.name for e in reloaded) == ["a", "b"]

@@ -14,7 +14,9 @@ from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Ric
 from pdftui.tui_protect import protected
 
 from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsAction
-from pdfpz.bridges import db_bridge, json_bridge, yaml_bridge
+from pdfpz.bridges import db_bridge, json_bridge
+from pdfpz.core.class_book_manifest import BooksShelf
+from pdfpz.core.class_books_collection import BooksCollection
 from .books_spine import POLICIES, BooksSpine
 
 SETTINGS_FILE = ".pdftui_tui_settings.json"
@@ -198,7 +200,10 @@ class PdftuiController:
         if not entries:
             self._print("Nothing to save -- Load or Crawl & Merge first.")
             return
-        yaml_bridge.save(self.session.yaml_input_path or self.session.top_dir, entries, self.session.saved_yaml)
+        collection = BooksCollection.from_legacy_path(self.session.saved_yaml)
+        collection.assets.input_path = self.session.yaml_input_path or self.session.top_dir
+        collection.books_manifest = BooksShelf(books=list(entries))
+        collection.save_books_collection()
         self._print(
             f"Saved {len(entries)} entries as YAML -> {self.session.saved_yaml} "
             f"(independent of current policy={self.session.policy})."
