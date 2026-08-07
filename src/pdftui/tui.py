@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsAction
+from pdfpz.bridges import db_bridge, json_bridge
+from pdfpz.core.class_books_collection import BooksCollection
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -13,8 +16,6 @@ from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Ric
 
 from pdftui.tui_protect import protected
 
-from pdfpz.actions.class_actions_book_props import BookPropsActions
-from pdfpz.bridges import db_bridge, json_bridge, yaml_bridge
 from .books_spine import POLICIES, BooksSpine
 
 SETTINGS_FILE = ".pdftui_tui_settings.json"
@@ -170,9 +171,7 @@ class PdftuiController:
 
         lib = self.session.get_lib()
         crawled = lib.crawl_and_merge(top_dir)
-        self._print(
-            f"Crawled {len(crawled)} PDF(s) under '{top_dir}', library now has {len(lib.shelf.books)} entries."
-        )
+        self._print(f"Crawled {len(crawled)} PDF(s) under '{top_dir}', library now has {len(lib.shelf.books)} entries.")
 
     def save(self) -> None:
         lib = self.session.get_lib()
@@ -194,11 +193,18 @@ class PdftuiController:
         )
 
     def save_as_yaml(self) -> None:
-        entries = _current_entries(self.session)
+        self._print("set entries")
+ 
+        entries = _current_entries(self.session.main_json)
+        self._print(f"there are {len(entries)} to save")
+ 
         if not entries:
             self._print("Nothing to save -- Load or Crawl & Merge first.")
             return
-        yaml_bridge.save(self.session.yaml_input_path or self.session.top_dir, entries, self.session.saved_yaml)
+        self._print("creating collection from entries")
+        collection = BooksCollection.from_entries(entries)
+        self._print("created collection from entries")
+        collection.save_books_collection()
         self._print(
             f"Saved {len(entries)} entries as YAML -> {self.session.saved_yaml} "
             f"(independent of current policy={self.session.policy})."
@@ -220,6 +226,21 @@ class PdftuiController:
     def save_settings(self) -> None:
         save_saved_settings(self.session)
         self._print(f"Settings saved to '{SETTINGS_FILE}' (will auto-load next start).")
+
+    def update_props_from_filesystem(self) -> None:
+        """For every entry currently in the list, refresh its filesystem-derived
+        props flags and write them to books_props (BookPropsActions.
+        set_props_from_filesystem_and_update_db(), driven per-entry by
+        BooksPropsAction.update_all_props())."""
+        entries = _current_entries(self.session)
+        if not entries:
+            self._print("Nothing to update -- Load or Crawl & Merge first.")
+            return
+        if not db_bridge.is_exist():
+            self._print("Nothing to update -- entries must be saved as DB first.")
+            return
+        BooksPropsAction(self.session.get_lib().shelf).update_all_props()
+        self._print(f"Updated props from filesystem for {len(entries)} entries.")
 
     def entries(self) -> list:
         return _current_entries(self.session)
@@ -340,7 +361,10 @@ class PdftuiApp(App):
         with Vertical(id="root"):
             with Horizontal(id="controls"):
                 yield Select(
-                    [(p, p) for p in POLICIES], value=self.controller.session.policy, allow_blank=False, id="policy-select"
+                    [(p, p) for p in POLICIES],
+                    value=self.controller.session.policy,
+                    allow_blank=False,
+                    id="policy-select",
                 )
                 yield Input(
                     placeholder="top directory to crawl", value=self.controller.session.top_dir, id="top-dir-input"
@@ -352,6 +376,7 @@ class PdftuiApp(App):
                 yield Button("Save as JSON", id="save-json-btn")
                 yield Button("Save as YAML", id="save-yaml-btn")
                 yield Button("Save as DB", id="save-db-btn")
+                yield Button("Update Props", id="update-props-btn")
                 yield Button("Settings", id="settings-btn")
                 yield Button("Save settings", id="save-settings-btn")
             yield DataTable(id="entries-table")
@@ -379,7 +404,9 @@ class PdftuiApp(App):
         for e in entries:
             if not e.title:
                 continue
-            table.add_row(e.name[:30], e.title[:40] or "(no title)", e.author[:40], _props_checkboxes(e.name), key=e.name)
+            table.add_row(
+                e.name[:30], e.title[:40] or "(no title)", e.author[:40], _props_checkboxes(e.name), key=e.name
+            )
             shown += 1
         self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {len(entries)} (shown: {shown})"
 
@@ -442,6 +469,8 @@ class PdftuiApp(App):
             self._run_action(self.controller.save_as_yaml)
         elif button_id == "save-db-btn":
             self._run_action(self.controller.save_as_db)
+        elif button_id == "update-props-btn":
+            self._run_action(self.controller.update_props_from_filesystem)
         elif button_id == "settings-btn":
             self.push_screen(SettingsScreen(self.controller.session), self._on_settings_closed)
         elif button_id == "save-settings-btn":

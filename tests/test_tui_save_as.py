@@ -43,9 +43,12 @@ def test_save_as_yaml_works_regardless_of_current_policy(tmp_path):
 
     _action_save_as_yaml(None, session)
 
-    from pdftui.yaml_bridge import load
+    from pdfpz.core.class_books_collection import BooksCollection
 
-    assert sorted(e.name for e in load(str(out))) == ["a", "b"]
+    collection = BooksCollection.from_legacy_path(str(out))
+    collection.load_books_collection()
+
+    assert sorted(e.name for e in collection.books_manifest.books) == ["a", "b"]
 
 
 def test_save_as_db_works_regardless_of_current_policy(tmp_path, monkeypatch):
