@@ -8,7 +8,7 @@ from typing import List, Optional
 from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsAction
 from pdfpz.bridges import db_bridge, json_bridge
 from pdfpz.core.class_books_collection import BooksCollection
-from pdfpz.core.class_book_manifest import Policies
+from pdfpz.core.class_book_manifest import POLICIES
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -76,6 +76,7 @@ class TuiSession:
         persistence_filename = policy_persistence_map.get(self.policy, "")
         if self.collection is None or self.collection.policy != self.policy:
             self.collection = BooksCollection.from_persistence_file_path(persistence_filename)
+            self.collection.load_books_collection()
         return self.collection
 
     def settings_fields(self) -> List[tuple]:
@@ -100,7 +101,7 @@ def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> Non
 
 
 def _current_entries(session: TuiSession):
-    return session.collection.shelf.books if session.collection else []
+    return session.collection.assets.get_entries() if session.collection else []
 
 
 # Same field order as pdfpz.core.class_book_manifest.PdfProps /
@@ -150,7 +151,7 @@ class PdftuiController:
 
     def load(self) -> None:
         lib: BooksCollection = self.session.get_collection()
-        self._print(f"Loaded {len(lib.assets.assets)} entries (policy={self.session.policy}).")
+        self._print(f"Loaded {len(lib.assets.get_entries())} entries (policy={self.session.policy}).")
 
     def crawl_and_merge(self, top_dir: str) -> None:
         if not top_dir:
@@ -195,7 +196,7 @@ class PdftuiController:
         if not db_bridge.is_exist():
             self._print("Nothing to update -- entries must be saved as DB first.")
             return
-        BooksPropsAction(self.session.get_collection().shelf).update_all_props()
+        BooksPropsAction(self.session.get_collection()).update_all_props()
         self._print(f"Updated props from filesystem for {len(entries)} entries.")
 
     def entries(self) -> list:
