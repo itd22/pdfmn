@@ -1,11 +1,9 @@
 import importlib
 
-import pytest
-
 from pdfpz.core.class_book_manifest import PdfManifestEntry
+
 from pdftui.tui import (
     TuiSession,
-    _action_save_as_db,
     _action_save_as_json,
     _action_save_as_yaml,
 )
@@ -19,8 +17,8 @@ def _entry(name):
 
 def _session_with_entries(policy, **kwargs):
     session = TuiSession(policy=policy, **kwargs)
-    session.lib = session.get_lib()
-    session.lib.shelf.books = [_entry("a"), _entry("b")]
+    session.collection = session.get_collection()
+    session.collection.shelf.books = [_entry("a"), _entry("b")]
     return session
 
 
@@ -55,6 +53,7 @@ def test_save_as_db_works_regardless_of_current_policy(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     import pdftui.db_bridge as db_bridge_module
     import pdftui.db_schema as db_schema_module
+
     import pdftui.tui as tui_module
 
     importlib.reload(db_schema_module)
@@ -62,8 +61,8 @@ def test_save_as_db_works_regardless_of_current_policy(tmp_path, monkeypatch):
     importlib.reload(tui_module)
 
     session = tui_module.TuiSession(policy="json")
-    session.lib = session.get_lib()
-    session.lib.shelf.books = [_entry("a"), _entry("b")]
+    session.collection = session.get_collection()
+    session.collection.shelf.books = [_entry("a"), _entry("b")]
 
     tui_module._action_save_as_db(None, session)
 
