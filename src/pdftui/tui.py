@@ -8,6 +8,8 @@ from typing import List, Optional
 from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsAction
 from pdfpz.bridges import db_bridge, json_bridge
 from pdfpz.core.class_books_collection import BooksCollection
+from pdfpz.core.class_book_manifest import Policies
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
