@@ -214,7 +214,8 @@ class PdftuiController:
             return []
         if self.session.show_spines_only:
             spines = collection.assets.get_spines()
-            if spines is not None:
+            if spines:
+                self._print(f"spines len = {len(spines)}")
                 return spines
         return collection.assets.get_entries() or []
 
@@ -379,8 +380,9 @@ class PdftuiApp(App):
         table.clear()
         entries = self.controller.visible_entries()
         for e in entries:
+            # pythonic fallback on string with len or None
             table.add_row(
-                e.name[:30], e.title[:40] or "(no title)", e.author[:40], _props_checkboxes(e.name), key=e.name
+                e.name[:30], (e.title or '')[:40], (e.author or '')[:40], _props_checkboxes(e.name), key=e.name
             )
         total = len(self.controller.entries())
         self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {total} (shown: {len(entries)})"
