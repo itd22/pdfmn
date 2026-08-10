@@ -298,17 +298,35 @@ class PdftuiApp(App):
     SUB_TITLE = "crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)"
 
     CSS = """
-    #controls, #controls2, #controls3 {
+    #controls, #controls2 {
         height: 3;
         padding: 0 1;
     }
-    #controls3 Label {
-        margin-right: 1;
-        content-align: center middle;
+    #filters-panel {
+        height: auto;
+        border: solid $accent;
+        padding: 0 1;
+        margin-bottom: 1;
     }
-    #controls3 Select {
-        width: 10;
+    #filters-title {
+        color: $text-muted;
+        padding: 0 1;
+    }
+    #controls3 {
+        height: auto;
+        padding: 0 1 1 1;
+    }
+    .filter-field {
+        width: auto;
+        height: auto;
         margin-right: 2;
+    }
+    .filter-field-label {
+        width: 100%;
+        text-align: center;
+    }
+    .filter-field Select {
+        width: 20;
     }
     #policy-select {
         width: 14;
@@ -375,15 +393,18 @@ class PdftuiApp(App):
                 yield Button("Update Props", id="update-props-btn")
                 yield Button("Settings", id="settings-btn")
                 yield Button("Save settings", id="save-settings-btn")
-            with Horizontal(id="controls3"):
-                for prop_name in PROP_FIELDS:
-                    yield Label(prop_name)
-                    yield Select(
-                        FILTER_OPTIONS,
-                        value="any",
-                        allow_blank=False,
-                        id=f"filter-{prop_name}-select",
-                    )
+            with Vertical(id="filters-panel"):
+                yield Static("Row filters", id="filters-title")
+                with Horizontal(id="controls3"):
+                    for prop_name in PROP_FIELDS:
+                        with Vertical(classes="filter-field"):
+                            yield Label(prop_name, classes="filter-field-label")
+                            yield Select(
+                                FILTER_OPTIONS,
+                                value="any",
+                                allow_blank=False,
+                                id=f"filter-{prop_name}-select",
+                            )
             yield DataTable(id="entries-table")
             yield Static("Output", id="output-label")
             yield RichLog(id="output-log", wrap=True, markup=True, max_lines=2000)
