@@ -326,7 +326,7 @@ class PdftuiApp(App):
         text-align: center;
     }
     .filter-field Select {
-        width: 20;
+        width: 13;
     }
     #policy-select {
         width: 14;
@@ -398,7 +398,7 @@ class PdftuiApp(App):
                 with Horizontal(id="controls3"):
                     for prop_name in PROP_FIELDS:
                         with Vertical(classes="filter-field"):
-                            yield Label(prop_name, classes="filter-field-label")
+                            yield Label(prop_name[:4], classes="filter-field-label")
                             yield Select(
                                 FILTER_OPTIONS,
                                 value="any",
