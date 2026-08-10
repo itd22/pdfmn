@@ -5,11 +5,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsAction
-from pdfpz.bridges import db_bridge, json_bridge
-from pdfpz.core.class_books_collection import BooksCollection
+from pdfpz.actions.class_actions_book_props import BookPropsActions, BooksPropsView
+from pdfpz.bridges import db_bridge
 from pdfpz.core.class_book_manifest import POLICIES
-
+from pdfpz.core.class_books_collection import BooksCollection
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -65,6 +64,7 @@ class TuiSession:
     saved_yaml: str = "saved.yaml"
     yaml_input_path: str = ""
     collection: Optional[BooksCollection] = None
+    view = None
     last_message: str = "Welcome. Pick an action."
     show_spines_only: bool = True
 
@@ -72,7 +72,7 @@ class TuiSession:
         """building collection it (with
         the current paths) only if it doesn't exist yet or the policy
         changed."""
-
+        return # TODO implement view or collection 
         policy_persistence_map = {"json": self.main_json, "yaml": self.main_yaml, "db": self.main_db}
         persistence_filename = policy_persistence_map.get(self.policy, "")
         if self.collection is None or self.collection.policy != self.policy:
@@ -96,40 +96,30 @@ class TuiSession:
         return {field_name: getattr(self, field_name) for field_name in SETTINGS_FIELDS}
 
 
-def save_saved_settings(session: "TuiSession", path: str = SETTINGS_FILE) -> None:
+def save_saved_settings(session: TuiSession, path: str = SETTINGS_FILE) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(session.settings_dict(), f, indent=2, ensure_ascii=False)
 
 
 def _current_entries(session: TuiSession):
-    return session.collection.assets.get_entries() if session.collection else []
+    # TODO implement  collection of View
+    # return session.collection.assets.get_entries() if session.collection else []
+    if session.view is None:
+        session.view = BooksPropsView()
+        session.view.select_rows()
+        
+    return session.view.rows 
 
 
 # Same field order as pdfpz.core.class_book_manifest.PdfProps /
 # pdfpz.bridges.db_schema.BookPropsOrm's per-stage columns.
-PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "sphostscript")
+PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "ps", "ps_and_ratio_size")
 
 
-def _props_checkboxes(entry_name: str) -> str:
-    """Return a "[x][ ]..." checkbox string for entry_name's PdfProps.
-
-    Looked up by the book's row id in the books table (BookPropsActions.
-    set_id()), which is the same id books_props uses as its own primary
-    key -- so a book with no matching row (not saved to the DB yet, or the
-    DB doesn't exist at all) just renders every box unchecked rather than
-    erroring.
+def _props_checkboxes(entry_with_props) -> str:
+    """Return a "[x][ ]..." checkbox string for entry.
     """
-    if not db_bridge.is_exist():
-        return " ".join("[ ]" for _ in PROP_FIELDS)
-
-    props_act = BookPropsActions()
-    props_act.set_name(entry_name)
-    props_act.set_id()
-    props_act.set_props_from_db()
-
-    if props_act.pdf_props is None:
-        return " ".join("[ ]" for _ in PROP_FIELDS)
-    return " ".join("[x]" if getattr(props_act.pdf_props, f) else "[ ]" for f in PROP_FIELDS)
+    return " ".join("[x]" if getattr(entry_with_props, f) else "[ ]" for f in PROP_FIELDS)
 
 
 class PdftuiController:
@@ -186,19 +176,8 @@ class PdftuiController:
         self._print(f"Settings saved to '{SETTINGS_FILE}' (will auto-load next start).")
 
     def update_props_from_filesystem(self) -> None:
-        """For every entry currently in the list, refresh its filesystem-derived
-        props flags and write them to books_props (BookPropsActions.
-        set_props_from_filesystem_and_update_db(), driven per-entry by
-        BooksPropsAction.update_all_props())."""
-        entries = _current_entries(self.session)
-        if not entries:
-            self._print("Nothing to update -- Load or Crawl & Merge first.")
-            return
-        if not db_bridge.is_exist():
-            self._print("Nothing to update -- entries must be saved as DB first.")
-            return
-        BooksPropsAction(self.session.get_collection()).update_all_props()
-        self._print(f"Updated props from filesystem for {len(entries)} entries.")
+        """not implemented yet"""
+        self._print("not implemented yet")
 
     def entries(self) -> list:
         return _current_entries(self.session)
@@ -218,6 +197,12 @@ class PdftuiController:
                 self._print(f"spines len = {len(spines)}")
                 return spines
         return collection.assets.get_entries() or []
+
+    def visible_props_view(self) -> list:
+        """ """
+        books_view: BooksPropsView = BooksPropsView()
+        books_view.select_rows()
+        return books_view.rows
 
 
 class SettingsScreen(ModalScreen[bool]):
@@ -378,11 +363,11 @@ class PdftuiApp(App):
     def _refresh_table(self) -> None:
         table = self.query_one("#entries-table", DataTable)
         table.clear()
-        entries = self.controller.visible_entries()
+        entries = self.controller.visible_props_view()
         for e in entries:
             # pythonic fallback on string with len or None
             table.add_row(
-                e.name[:30], (e.title or '')[:40], (e.author or '')[:40], _props_checkboxes(e.name), key=e.name
+                e.name[:30], (e.title or "")[:40], (e.author or "")[:40], _props_checkboxes(e), key=e.name
             )
         total = len(self.controller.entries())
         self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {total} (shown: {len(entries)})"
