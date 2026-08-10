@@ -76,6 +76,8 @@ class TuiSession:
     max_filters: dict = field(default_factory=lambda: {name: "" for name in NUMERIC_FIELDS})
     # "any" / "has" / "none" -- the author filter Select's value.
     author_filter: str = "any"
+    # "any" / "has" / "none" -- the isbn filter Select's value.
+    isbn_filter: str = "any"
 
     def get_collection(self) -> BooksCollection:
         """building collection it (with
@@ -146,6 +148,11 @@ _FILTER_OPTION_TO_VALUE = {"any": None, "true": True, "false": False}
 # filter, "has"/"none" -> filter for present/absent author.
 AUTHOR_FILTER_OPTIONS = [("any", "any"), ("has", "has"), ("none", "none")]
 _AUTHOR_FILTER_OPTION_TO_VALUE = {"any": None, "has": True, "none": False}
+
+# Same tri-state idea for BooksPropsView.set_isbn_filter(): "any" -> no
+# filter, "has"/"none" -> filter for present/absent isbn.
+ISBN_FILTER_OPTIONS = [("any", "any"), ("has", "has"), ("none", "none")]
+_ISBN_FILTER_OPTION_TO_VALUE = {"any": None, "has": True, "none": False}
 
 
 def _props_checkboxes(entry_with_props) -> str:
@@ -239,7 +246,8 @@ class PdftuiController:
         """Query view_books_props for display, with the current per-prop
         filters (session.prop_filters: field name -> True/False/None),
         numeric max filters (session.max_filters: field name -> raw text,
-        "" for no filter), and author filter (session.author_filter:
+        "" for no filter), author filter (session.author_filter:
+        "any"/"has"/"none"), and isbn filter (session.isbn_filter:
         "any"/"has"/"none") all applied."""
         books_view: BooksPropsView = BooksPropsView()
         for field_name, value in self.session.prop_filters.items():
@@ -254,6 +262,7 @@ class PdftuiController:
             except ValueError:
                 self._print(f"'{raw}' isn't a whole number -- ignoring the {field_name} filter.")
         books_view.set_author_filter(_AUTHOR_FILTER_OPTION_TO_VALUE[self.session.author_filter])
+        books_view.set_isbn_filter(_ISBN_FILTER_OPTION_TO_VALUE[self.session.isbn_filter])
         books_view.select_rows()
         return books_view.rows
 
@@ -455,6 +464,14 @@ class PdftuiApp(App):
                             allow_blank=False,
                             id="filter-author-select",
                         )
+                    with Vertical(classes="filter-field"):
+                        yield Label("isbn", classes="filter-field-label")
+                        yield Select(
+                            ISBN_FILTER_OPTIONS,
+                            value=self.controller.session.isbn_filter,
+                            allow_blank=False,
+                            id="filter-isbn-select",
+                        )
             yield DataTable(id="entries-table")
             yield Static("Output", id="output-label")
             yield RichLog(id="output-log", wrap=True, markup=True, max_lines=2000)
@@ -529,6 +546,11 @@ class PdftuiApp(App):
         if event.select.id == "filter-author-select":
             self.controller.session.author_filter = event.value
             self._log(f"Author filter set to {event.value!r}.")
+            self._refresh_table()
+            return
+        if event.select.id == "filter-isbn-select":
+            self.controller.session.isbn_filter = event.value
+            self._log(f"ISBN filter set to {event.value!r}.")
             self._refresh_table()
             return
         if event.select.id and event.select.id.startswith("filter-") and event.select.id.endswith("-select"):
