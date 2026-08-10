@@ -70,6 +70,12 @@ class TuiSession:
     # field name (PROP_FIELDS entries) -> True ("filter if true"),
     # False ("filter if false"), or None ("no filter", the default).
     prop_filters: dict = field(default_factory=lambda: {name: None for name in PROP_FIELDS})
+    # field name (NUMERIC_FIELDS entries) -> raw text from that field's
+    # "max" Input box; "" means no filter. Kept as the raw string (not
+    # parsed to int) so an in-progress/invalid edit doesn't get lost.
+    max_filters: dict = field(default_factory=lambda: {name: "" for name in NUMERIC_FIELDS})
+    # "any" / "has" / "none" -- the author filter Select's value.
+    author_filter: str = "any"
 
     def get_collection(self) -> BooksCollection:
         """building collection it (with
@@ -119,6 +125,10 @@ def _current_entries(session: TuiSession):
 PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "ps", "ps_and_ratio_size")
 # PROP_FIELDS = ( "renamed", "ps", "ps_and_ratio_size")
 
+# Integer view_books_props columns (0-999-ish) shown as their own table
+# columns, each with a "cap it at this value" text filter.
+NUMERIC_FIELDS = ("ratio_ps_vs_renamed", "sz_ps_mega")
+
 # "metadata" is reserved by SQLAlchemy's declarative base, so
 # BookViewPropsOrm maps that column onto metadata_ instead (see
 # db_schema.py) -- same mapping BooksPropsView.set_prop_filter() applies
@@ -132,11 +142,21 @@ _PROP_FIELD_TO_ATTR = {"metadata": "metadata_"}
 FILTER_OPTIONS = [("any", "any"), ("true", "true"), ("false", "false")]
 _FILTER_OPTION_TO_VALUE = {"any": None, "true": True, "false": False}
 
+# Same tri-state idea for BooksPropsView.set_author_filter(): "any" -> no
+# filter, "has"/"none" -> filter for present/absent author.
+AUTHOR_FILTER_OPTIONS = [("any", "any"), ("has", "has"), ("none", "none")]
+_AUTHOR_FILTER_OPTION_TO_VALUE = {"any": None, "has": True, "none": False}
+
 
 def _props_checkboxes(entry_with_props) -> str:
     """Return a "[x][ ]..." checkbox string for entry."""
     # pythonic returns generator expression  ## tuple()  would be more clear
     return ("[+]" if getattr(entry_with_props, _PROP_FIELD_TO_ATTR.get(f, f)) else "[-]" for f in PROP_FIELDS)
+
+
+def _numeric_columns(entry_with_props):
+    """Return NUMERIC_FIELDS' values (0-999-ish ints) as display strings."""
+    return (str(getattr(entry_with_props, f)) for f in NUMERIC_FIELDS)
 
 
 class PdftuiController:
@@ -217,12 +237,23 @@ class PdftuiController:
 
     def visible_props_view(self) -> list:
         """Query view_books_props for display, with the current per-prop
-        filters (session.prop_filters: field name -> True/False/None)
-        applied."""
+        filters (session.prop_filters: field name -> True/False/None),
+        numeric max filters (session.max_filters: field name -> raw text,
+        "" for no filter), and author filter (session.author_filter:
+        "any"/"has"/"none") all applied."""
         books_view: BooksPropsView = BooksPropsView()
         for field_name, value in self.session.prop_filters.items():
             if value is not None:
                 books_view.set_prop_filter(field_name, value)
+        for field_name, raw in self.session.max_filters.items():
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                books_view.set_max_filter(field_name, int(raw))
+            except ValueError:
+                self._print(f"'{raw}' isn't a whole number -- ignoring the {field_name} filter.")
+        books_view.set_author_filter(_AUTHOR_FILTER_OPTION_TO_VALUE[self.session.author_filter])
         books_view.select_rows()
         return books_view.rows
 
@@ -328,6 +359,9 @@ class PdftuiApp(App):
     .filter-field Select {
         width: 13;
     }
+    .filter-field Input {
+        width: 13;
+    }
     #policy-select {
         width: 14;
         margin-right: 1;
@@ -405,6 +439,22 @@ class PdftuiApp(App):
                                 allow_blank=False,
                                 id=f"filter-{prop_name}-select",
                             )
+                    for numeric_name in NUMERIC_FIELDS:
+                        with Vertical(classes="filter-field"):
+                            yield Label(numeric_name[:4], classes="filter-field-label")
+                            yield Input(
+                                placeholder="max",
+                                value=self.controller.session.max_filters[numeric_name],
+                                id=f"filter-{numeric_name}-input",
+                            )
+                    with Vertical(classes="filter-field"):
+                        yield Label("auth", classes="filter-field-label")
+                        yield Select(
+                            AUTHOR_FILTER_OPTIONS,
+                            value=self.controller.session.author_filter,
+                            allow_blank=False,
+                            id="filter-author-select",
+                        )
             yield DataTable(id="entries-table")
             yield Static("Output", id="output-label")
             yield RichLog(id="output-log", wrap=True, markup=True, max_lines=2000)
@@ -414,7 +464,9 @@ class PdftuiApp(App):
         table = self.query_one("#entries-table", DataTable)
         table.cursor_type = "row"
         # pythonic take first 3 chars and unpack for variables
-        table.add_columns("Name", "Title", "Author", *(x[:3] for x in PROP_FIELDS))
+        table.add_columns(
+            "Name", "Title", "Author", *(x[:3] for x in PROP_FIELDS), *(x[:3] for x in NUMERIC_FIELDS)
+        )
         if self.controller.session.last_message:
             self._log(self.controller.session.last_message)
         self._refresh_table()
@@ -427,7 +479,14 @@ class PdftuiApp(App):
         entries = self.controller.visible_props_view()
         for e in entries:
             # pythonic fallback on string with len or None, unpack generator func
-            table.add_row(e.name[:15], (e.title or "")[:35], (e.author or "")[:30], *_props_checkboxes(e), key=e.name)
+            table.add_row(
+                e.name[:15],
+                (e.title or "")[:35],
+                (e.author or "")[:30],
+                *_props_checkboxes(e),
+                *_numeric_columns(e),
+                key=e.name,
+            )
         total = len(self.controller.entries())
         self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {total} (shown: {len(entries)})"
 
@@ -467,6 +526,11 @@ class PdftuiApp(App):
             self.controller.session.policy = event.value
             self._log(f"Policy set to '{event.value}'.")
             return
+        if event.select.id == "filter-author-select":
+            self.controller.session.author_filter = event.value
+            self._log(f"Author filter set to {event.value!r}.")
+            self._refresh_table()
+            return
         if event.select.id and event.select.id.startswith("filter-") and event.select.id.endswith("-select"):
             prop_name = event.select.id[len("filter-") : -len("-select")]
             value = _FILTER_OPTION_TO_VALUE[event.value]
@@ -482,6 +546,11 @@ class PdftuiApp(App):
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "top-dir-input":
             self.controller.session.top_dir = event.value
+            return
+        if event.input.id and event.input.id.startswith("filter-") and event.input.id.endswith("-input"):
+            numeric_name = event.input.id[len("filter-") : -len("-input")]
+            self.controller.session.max_filters[numeric_name] = event.value
+            self._refresh_table()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "top-dir-input":
