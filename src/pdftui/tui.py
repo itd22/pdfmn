@@ -56,7 +56,7 @@ class TuiSession:
     or quits.
     """
 
-    policy: str = "json"
+    policy: str = "db"
     top_dir: str = ""
     main_json: str = "main.json"
     main_db: str = "books_db.db"
