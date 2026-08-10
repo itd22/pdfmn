@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
@@ -67,6 +67,9 @@ class TuiSession:
     view = None
     last_message: str = "Welcome. Pick an action."
     show_spines_only: bool = True
+    # field name (PROP_FIELDS entries) -> True ("filter if true"),
+    # False ("filter if false"), or None ("no filter", the default).
+    prop_filters: dict = field(default_factory=lambda: {name: None for name in PROP_FIELDS})
 
     def get_collection(self) -> BooksCollection:
         """building collection it (with
@@ -116,11 +119,24 @@ def _current_entries(session: TuiSession):
 PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "ps", "ps_and_ratio_size")
 # PROP_FIELDS = ( "renamed", "ps", "ps_and_ratio_size")
 
+# "metadata" is reserved by SQLAlchemy's declarative base, so
+# BookViewPropsOrm maps that column onto metadata_ instead (see
+# db_schema.py) -- same mapping BooksPropsView.set_prop_filter() applies
+# internally, needed here too since checkbox display reads the ORM row
+# directly rather than going through BooksPropsView.
+_PROP_FIELD_TO_ATTR = {"metadata": "metadata_"}
+
+# Selecting a filter option maps to the tri-state value BooksPropsView.
+# set_prop_filter() expects: "any" -> no filter, "true"/"false" -> filter
+# if that field is True/False.
+FILTER_OPTIONS = [("any", "any"), ("true", "true"), ("false", "false")]
+_FILTER_OPTION_TO_VALUE = {"any": None, "true": True, "false": False}
+
 
 def _props_checkboxes(entry_with_props) -> str:
     """Return a "[x][ ]..." checkbox string for entry."""
     # pythonic returns generator expression  ## tuple()  would be more clear
-    return ("[+]" if getattr(entry_with_props, f) else "[-]" for f in PROP_FIELDS)
+    return ("[+]" if getattr(entry_with_props, _PROP_FIELD_TO_ATTR.get(f, f)) else "[-]" for f in PROP_FIELDS)
 
 
 class PdftuiController:
@@ -200,8 +216,13 @@ class PdftuiController:
         return collection.assets.get_entries() or []
 
     def visible_props_view(self) -> list:
-        """ """
+        """Query view_books_props for display, with the current per-prop
+        filters (session.prop_filters: field name -> True/False/None)
+        applied."""
         books_view: BooksPropsView = BooksPropsView()
+        for field_name, value in self.session.prop_filters.items():
+            if value is not None:
+                books_view.set_prop_filter(field_name, value)
         books_view.select_rows()
         return books_view.rows
 
@@ -277,9 +298,17 @@ class PdftuiApp(App):
     SUB_TITLE = "crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)"
 
     CSS = """
-    #controls, #controls2 {
+    #controls, #controls2, #controls3 {
         height: 3;
         padding: 0 1;
+    }
+    #controls3 Label {
+        margin-right: 1;
+        content-align: center middle;
+    }
+    #controls3 Select {
+        width: 10;
+        margin-right: 2;
     }
     #policy-select {
         width: 14;
@@ -346,6 +375,15 @@ class PdftuiApp(App):
                 yield Button("Update Props", id="update-props-btn")
                 yield Button("Settings", id="settings-btn")
                 yield Button("Save settings", id="save-settings-btn")
+            with Horizontal(id="controls3"):
+                for prop_name in PROP_FIELDS:
+                    yield Label(prop_name)
+                    yield Select(
+                        FILTER_OPTIONS,
+                        value="any",
+                        allow_blank=False,
+                        id=f"filter-{prop_name}-select",
+                    )
             yield DataTable(id="entries-table")
             yield Static("Output", id="output-label")
             yield RichLog(id="output-log", wrap=True, markup=True, max_lines=2000)
@@ -407,6 +445,13 @@ class PdftuiApp(App):
         if event.select.id == "policy-select":
             self.controller.session.policy = event.value
             self._log(f"Policy set to '{event.value}'.")
+            return
+        if event.select.id and event.select.id.startswith("filter-") and event.select.id.endswith("-select"):
+            prop_name = event.select.id[len("filter-") : -len("-select")]
+            value = _FILTER_OPTION_TO_VALUE[event.value]
+            self.controller.session.prop_filters[prop_name] = value
+            self._log(f"Filter '{prop_name}' set to {event.value!r}.")
+            self._refresh_table()
 
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
         if event.checkbox.id == "spines-checkbox":
