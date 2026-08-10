@@ -114,12 +114,15 @@ def _current_entries(session: TuiSession):
 # Same field order as pdfpz.core.class_book_manifest.PdfProps /
 # pdfpz.bridges.db_schema.BookPropsOrm's per-stage columns.
 PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "ps", "ps_and_ratio_size")
+#PROP_FIELDS = ( "renamed", "ps", "ps_and_ratio_size")
+
+
 
 
 def _props_checkboxes(entry_with_props) -> str:
     """Return a "[x][ ]..." checkbox string for entry.
     """
-    return " ".join("[x]" if getattr(entry_with_props, f) else "[ ]" for f in PROP_FIELDS)
+    return ("[+]" if getattr(entry_with_props, f) else "[-]" for f in PROP_FIELDS)
 
 
 class PdftuiController:
@@ -353,7 +356,7 @@ class PdftuiApp(App):
     def on_mount(self) -> None:
         table = self.query_one("#entries-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Name", "Title", "Author", f"Props [{'/'.join(PROP_FIELDS)}]")
+        table.add_columns("Name", "Title", "Author", *(x[:3] for x in PROP_FIELDS)) 
         if self.controller.session.last_message:
             self._log(self.controller.session.last_message)
         self._refresh_table()
@@ -367,7 +370,7 @@ class PdftuiApp(App):
         for e in entries:
             # pythonic fallback on string with len or None
             table.add_row(
-                e.name[:30], (e.title or "")[:40], (e.author or "")[:40], _props_checkboxes(e), key=e.name
+                e.name[:15], (e.title or "")[:35], (e.author or "")[:30], *_props_checkboxes(e), key=e.name
             )
         total = len(self.controller.entries())
         self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {total} (shown: {len(entries)})"
