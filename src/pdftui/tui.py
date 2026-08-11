@@ -124,8 +124,7 @@ def _current_entries(session: TuiSession):
 
 # Same field order as pdfpz.core.class_book_manifest.PdfProps /
 # pdfpz.bridges.db_schema.BookPropsOrm's per-stage columns.
-PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "ps", "ps_and_ratio_size")
-# PROP_FIELDS = ( "renamed", "ps", "ps_and_ratio_size")
+PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "ps", "ps_and_ratio_size", "n_isbn_prs")
 
 # Integer view_books_props columns (0-999-ish) shown as their own table
 # columns, each with a "cap it at this value" text filter.
@@ -482,7 +481,7 @@ class PdftuiApp(App):
         table.cursor_type = "row"
         # pythonic take first 3 chars and unpack for variables
         table.add_columns(
-            "Name", "Title", "Author", *(x[:3] for x in PROP_FIELDS), *(x[:3] for x in NUMERIC_FIELDS)
+            "Name", "NName","Title", "Author","Year","ISBN", *(x[:3] for x in PROP_FIELDS), *(x[:3] for x in NUMERIC_FIELDS)
         )
         if self.controller.session.last_message:
             self._log(self.controller.session.last_message)
@@ -498,8 +497,11 @@ class PdftuiApp(App):
             # pythonic fallback on string with len or None, unpack generator func
             table.add_row(
                 e.name[:15],
+                (e.norm_name or "")[:35],
                 (e.title or "")[:35],
                 (e.author or "")[:30],
+                (e.year or "")[:6],
+                (e.isbn or "")[:15],
                 *_props_checkboxes(e),
                 *_numeric_columns(e),
                 key=e.name,
