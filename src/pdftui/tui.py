@@ -78,6 +78,9 @@ class TuiSession:
     author_filter: str = "any"
     # "any" / "has" / "none" -- the isbn filter Select's value.
     isbn_filter: str = "any"
+    # field name (BASE_COLUMNS entries) -> whether that column is shown in
+    # the entries table. All on by default (today's fixed column set).
+    visible_base_columns: dict = field(default_factory=lambda: {name: True for name in BASE_COLUMNS})
 
     def get_collection(self) -> BooksCollection:
         """building collection it (with
@@ -130,6 +133,12 @@ PROP_FIELDS = ("orig", "sanitized", "metadata", "renamed", "ps", "ps_and_ratio_s
 # columns, each with a "cap it at this value" text filter.
 NUMERIC_FIELDS = ("ratio_ps_vs_renamed", "sz_ps_mega")
 
+# The entry-identifying columns shown before PROP_FIELDS/NUMERIC_FIELDS --
+# each can be shown/hidden independently via a "col-<name>-checkbox".
+BASE_COLUMNS = ("name", "norm_name", "title", "author", "year", "isbn")
+BASE_COLUMN_LABELS = {"name": "Name", "norm_name": "NName", "title": "Title", "author": "Author", "year": "Year", "isbn": "ISBN"}
+BASE_COLUMN_WIDTHS = {"name": 15, "norm_name": 35, "title": 35, "author": 30, "year": 6, "isbn": 15}
+
 # "metadata" is reserved by SQLAlchemy's declarative base, so
 # BookViewPropsOrm maps that column onto metadata_ instead (see
 # db_schema.py) -- same mapping BooksPropsView.set_prop_filter() applies
@@ -163,6 +172,11 @@ def _props_checkboxes(entry_with_props) -> str:
 def _numeric_columns(entry_with_props):
     """Return NUMERIC_FIELDS' values (0-999-ish ints) as display strings."""
     return (str(getattr(entry_with_props, f)) for f in NUMERIC_FIELDS)
+
+
+def _base_column_value(entry, field_name: str) -> str:
+    """Return one BASE_COLUMNS field's value, truncated to its display width."""
+    return str(getattr(entry, field_name, "") or "")[: BASE_COLUMN_WIDTHS[field_name]]
 
 
 class PdftuiController:
@@ -337,7 +351,7 @@ class PdftuiApp(App):
     SUB_TITLE = "crawl a directory for PDFs and maintain a books manifest (json / yaml / sqlite)"
 
     CSS = """
-    #controls, #controls2 {
+    #controls, #controls2, #column-toggles {
         height: 3;
         padding: 0 1;
     }
@@ -380,6 +394,15 @@ class PdftuiApp(App):
     }
     #spines-checkbox {
         margin-left: 1;
+        width: auto;
+    }
+    #column-toggles-label {
+        width: auto;
+        content-align: left middle;
+        margin-right: 1;
+    }
+    #column-toggles Checkbox {
+        margin-right: 1;
         width: auto;
     }
     #entries-table {
@@ -435,6 +458,14 @@ class PdftuiApp(App):
                 yield Button("Update Props", id="update-props-btn")
                 yield Button("Settings", id="settings-btn")
                 yield Button("Save settings", id="save-settings-btn")
+            with Horizontal(id="column-toggles"):
+                yield Static("Columns:", id="column-toggles-label")
+                for col in BASE_COLUMNS:
+                    yield Checkbox(
+                        BASE_COLUMN_LABELS[col],
+                        value=self.controller.session.visible_base_columns[col],
+                        id=f"col-{col}-checkbox",
+                    )
             with Vertical(id="filters-panel"):
                 yield Static("Row filters", id="filters-title")
                 with Horizontal(id="controls3"):
@@ -479,33 +510,31 @@ class PdftuiApp(App):
     def on_mount(self) -> None:
         table = self.query_one("#entries-table", DataTable)
         table.cursor_type = "row"
-        # pythonic take first 3 chars and unpack for variables
-        table.add_columns(
-            "Name", "NName","Title", "Author","Year","ISBN", *(x[:3] for x in PROP_FIELDS), *(x[:3] for x in NUMERIC_FIELDS)
-        )
+        self._setup_columns(table)
         if self.controller.session.last_message:
             self._log(self.controller.session.last_message)
         self._refresh_table()
+
+    def _setup_columns(self, table: DataTable) -> None:
+        """(Re)build the table's column headers from the current
+        visible_base_columns toggles, plus the always-shown PROP_FIELDS/
+        NUMERIC_FIELDS columns. Clears any existing rows too -- callers
+        that just want a header refresh should follow with _refresh_table()."""
+        table.clear(columns=True)
+        visible = self.controller.session.visible_base_columns
+        base_headers = [BASE_COLUMN_LABELS[c] for c in BASE_COLUMNS if visible.get(c, True)]
+        table.add_columns(*base_headers, *(x[:3] for x in PROP_FIELDS), *(x[:3] for x in NUMERIC_FIELDS))
 
     # --- entries table ---
 
     def _refresh_table(self) -> None:
         table = self.query_one("#entries-table", DataTable)
-        table.clear()
+        self._setup_columns(table)
         entries = self.controller.visible_props_view()
+        visible = self.controller.session.visible_base_columns
         for e in entries:
-            # pythonic fallback on string with len or None, unpack generator func
-            table.add_row(
-                e.name[:15],
-                (e.norm_name or "")[:35],
-                (e.title or "")[:35],
-                (e.author or "")[:30],
-                (e.year or "")[:6],
-                (e.isbn or "")[:15],
-                *_props_checkboxes(e),
-                *_numeric_columns(e),
-                key=e.name,
-            )
+            base_values = [_base_column_value(e, c) for c in BASE_COLUMNS if visible.get(c, True)]
+            table.add_row(*base_values, *_props_checkboxes(e), *_numeric_columns(e), key=e.name)
         total = len(self.controller.entries())
         self.sub_title = f"policy={self.controller.session.policy} | entries in memory: {total} (shown: {len(entries)})"
 
@@ -566,6 +595,12 @@ class PdftuiApp(App):
         if event.checkbox.id == "spines-checkbox":
             self.controller.session.show_spines_only = event.value
             self._refresh_table()
+            return
+        if event.checkbox.id and event.checkbox.id.startswith("col-") and event.checkbox.id.endswith("-checkbox"):
+            col = event.checkbox.id[len("col-") : -len("-checkbox")]
+            if col in BASE_COLUMNS:
+                self.controller.session.visible_base_columns[col] = event.value
+                self._refresh_table()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "top-dir-input":
